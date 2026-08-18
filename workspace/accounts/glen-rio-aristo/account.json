@@ -1,0 +1,15 @@
+{
+  "id": "glen-rio-aristo",
+  "name": "Glen Rio Aristo",
+  "workflows": [
+    "manual-video"
+  ],
+  "templates": [
+    "glen-personal",
+    "glen-quote"
+  ],
+  "branding": {
+    "logo": "",
+    "watermark": "@glenrioaristo"
+  }
+}

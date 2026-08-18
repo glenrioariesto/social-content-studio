@@ -1,0 +1,19 @@
+{
+  "id": "glen-quote",
+  "name": "Glen Quote",
+  "type": "html-template",
+  "accountId": "glen-rio-aristo",
+  "input": {
+    "type": "html"
+  },
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "variables": [
+    "quote",
+    "author",
+    "brand"
+  ]
+}

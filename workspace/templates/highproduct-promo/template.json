@@ -1,0 +1,26 @@
+{
+  "id": "highproduct-promo",
+  "name": "HighProduct Promo",
+  "type": "video-overlay",
+  "accountId": "highproduct",
+  "input": {
+    "type": "video"
+  },
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "overlay": {
+    "file": "overlay.png",
+    "position": "center"
+  },
+  "audio": {
+    "enabled": true
+  },
+  "variables": [
+    "product",
+    "cta",
+    "brand"
+  ]
+}

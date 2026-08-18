@@ -1,0 +1,25 @@
+{
+  "id": "jacksonlab-commentary",
+  "name": "JacksonLab Commentary",
+  "type": "video-overlay",
+  "accountId": "jacksonlab",
+  "input": {
+    "type": "video"
+  },
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "overlay": {
+    "file": "overlay.png",
+    "position": "bottom"
+  },
+  "audio": {
+    "enabled": true
+  },
+  "variables": [
+    "title",
+    "brand"
+  ]
+}

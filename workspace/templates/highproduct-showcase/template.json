@@ -1,0 +1,20 @@
+{
+  "id": "highproduct-showcase",
+  "name": "HighProduct Showcase",
+  "type": "html-template",
+  "accountId": "highproduct",
+  "input": {
+    "type": "html"
+  },
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "variables": [
+    "product",
+    "price",
+    "cta",
+    "brand"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "glen-personal",
+  "name": "Glen Personal",
+  "type": "video-overlay",
+  "accountId": "glen-rio-aristo",
+  "input": {
+    "type": "video"
+  },
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "overlay": {
+    "file": "overlay.png",
+    "position": "top-right"
+  },
+  "audio": {
+    "enabled": true
+  },
+  "variables": [
+    "title",
+    "brand"
+  ]
+}

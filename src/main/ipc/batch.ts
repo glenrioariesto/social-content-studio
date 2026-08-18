@@ -1,6 +1,7 @@
 import { join } from 'path'
 import { readFile, writeFile, readdir, mkdir } from 'fs/promises'
 import { logInfo } from '../errors'
+import { safeIpcMain } from './safe-handler'
 
 interface BatchRow {
   title: string
@@ -36,8 +37,6 @@ function parseCSV(raw: string): BatchRow[] {
 
 export function initBatchIpc(): void {
   const ws = join(process.cwd(), 'workspace')
-
-  const { safeIpcMain } = require('./safe-handler') as typeof import('./safe-handler')
 
   safeIpcMain('batch:parse-csv', async (_event: any, csvPath: string) => {
     const raw = await readFile(csvPath, 'utf-8')

@@ -1,0 +1,25 @@
+{
+  "id": "jacksonlab-news",
+  "name": "JacksonLab News",
+  "type": "video-overlay",
+  "accountId": "jacksonlab",
+  "input": {
+    "type": "video"
+  },
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "overlay": {
+    "file": "overlay.png",
+    "position": "center"
+  },
+  "audio": {
+    "enabled": true
+  },
+  "variables": [
+    "headline",
+    "brand"
+  ]
+}

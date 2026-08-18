@@ -1,0 +1,16 @@
+{
+  "id": "highproduct",
+  "name": "HighProduct",
+  "workflows": [
+    "product-video",
+    "manual-video"
+  ],
+  "templates": [
+    "highproduct-showcase",
+    "highproduct-promo"
+  ],
+  "branding": {
+    "logo": "",
+    "watermark": "@highproduct"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "jacksonlab",
+  "name": "JacksonLab",
+  "workflows": [
+    "internet-video",
+    "manual-video"
+  ],
+  "templates": [
+    "jacksonlab-news",
+    "jacksonlab-commentary"
+  ],
+  "branding": {
+    "logo": "",
+    "watermark": "@jacksonlab"
+  }
+}
