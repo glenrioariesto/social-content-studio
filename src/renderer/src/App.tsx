@@ -3,6 +3,7 @@ import { Sidebar } from './components/layout/Sidebar'
 import { TitleBar } from './components/layout/TitleBar'
 import { DashboardPage } from './pages/DashboardPage'
 import { ContentPage } from './pages/ContentPage'
+import { ContentDetailPage } from './pages/ContentDetailPage'
 import { TemplatesPage } from './pages/TemplatesPage'
 import { AssetsPage } from './pages/AssetsPage'
 import { AccountsPage } from './pages/AccountsPage'
@@ -18,6 +19,7 @@ export function App() {
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/content" element={<ContentPage />} />
+            <Route path="/content/:id" element={<ContentDetailPage />} />
             <Route path="/templates" element={<TemplatesPage />} />
             <Route path="/assets" element={<AssetsPage />} />
             <Route path="/accounts" element={<AccountsPage />} />
