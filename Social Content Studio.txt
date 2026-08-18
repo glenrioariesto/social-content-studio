@@ -1,0 +1,2482 @@
+Bisa. Kalau kebutuhanmu adalah dashboard lokal untuk mengelola konten dari beberapa akun sosial media, dengan HTML sebagai sumber konten dan FFmpeg sebagai engine rendering video, saya sarankan arsitekturnya dibuat seperti local content production studio, bukan CMS biasa.
+
+Karena kamu tidak ingin database, metadata dan status konten bisa disimpan sebagai file JSON lokal, sedangkan asset seperti HTML, gambar, audio, video, dan hasil render disimpan dalam folder.
+
+1. Konsep aplikasi
+
+Nama sementara: Social Content Studio
+
+Alur utamanya:
+
+                    ┌─────────────────────┐
+                    │   Dashboard Lokal   │
+                    └──────────┬──────────┘
+                               │
+              ┌────────────────┼────────────────┐
+              │                │                │
+         Accounts           Content          Templates
+              │                │                │
+       3 Social Accounts   Draft/Ready      HTML Template
+              │                │                │
+              └────────────────┼────────────────┘
+                               │
+                         Content Builder
+                               │
+                    ┌──────────┴──────────┐
+                    │                     │
+               HTML Preview          Asset Manager
+                    │                     │
+                    └──────────┬──────────┘
+                               │
+                            FFmpeg
+                               │
+                       Local Rendering
+                               │
+                     ┌─────────┴─────────┐
+                     │                   │
+                 MP4 Output          Thumbnail
+                     │                   │
+                     └─────────┬─────────┘
+                               │
+                         Content Library
+                               │
+                        Schedule / Publish
+
+Catatan penting: kalau proses publishing ke platform juga ingin otomatis, kita bisa menambahkan adapter/API masing-masing platform nanti. Tetapi MVP sebaiknya fokus ke content management + rendering lokal terlebih dahulu.
+
+2. PRD — Social Content Studio
+Product Vision
+
+Membangun aplikasi desktop/local web dashboard untuk mengelola proses produksi konten sosial media dari tahap ide, pembuatan HTML, rendering menggunakan FFmpeg, sampai konten siap dipublikasikan ke berbagai akun dan platform.
+
+Aplikasi berjalan 100% lokal sehingga:
+
+tidak membutuhkan database server
+tidak membutuhkan cloud storage
+asset berada di komputer
+rendering menggunakan resource komputer sendiri
+metadata menggunakan JSON
+dapat digunakan tanpa internet untuk proses produksi
+hasil video dapat langsung digunakan untuk upload ke platform sosial media
+3. Target User
+Primary User
+
+Content creator / developer yang mengelola beberapa akun sosial media.
+
+Contoh:
+
+Account	Platform
+Account A	Instagram
+Account A	TikTok
+Account A	YouTube
+Account B	Instagram
+Account C	TikTok
+Account C	YouTube
+
+Satu account bisa memiliki beberapa platform.
+
+4. Problem yang ingin diselesaikan
+
+Saat ini workflow konten biasanya tersebar:
+
+Ide
+ ↓
+Notion / Excel
+ ↓
+Canva / HTML
+ ↓
+Folder asset
+ ↓
+FFmpeg
+ ↓
+Output video
+ ↓
+Rename manual
+ ↓
+Upload
+ ↓
+Catat sudah upload
+
+Masalah:
+
+sulit mengetahui konten mana yang sudah dibuat
+asset berserakan
+sulit mengetahui akun mana yang menggunakan konten
+template HTML tidak terorganisasi
+rendering FFmpeg harus dilakukan manual
+nama file tidak konsisten
+sulit melakukan batch rendering
+tidak ada history render
+sulit mengetahui konten yang ready
+duplicate content mudah terjadi
+
+Social Content Studio menyatukan semuanya.
+
+5. Scope MVP
+
+Saya sarankan MVP mempunyai 8 modul utama.
+
+Dashboard
+├── Accounts
+├── Content
+├── Calendar
+├── Templates
+├── Assets
+├── Render Queue
+├── Outputs
+└── Settings
+6. Dashboard
+
+Dashboard menjadi halaman pertama.
+
+Statistik
+┌───────────────────────────────────────────────────────┐
+│ Social Content Studio                                 │
+├───────────────────────────────────────────────────────┤
+│                                                       │
+│  Draft       Ready       Rendering       Published    │
+│    24          12            3              87        │
+│                                                       │
+├───────────────────────────────────────────────────────┤
+│                                                       │
+│  Render Queue                                         │
+│                                                       │
+│  ● Promo August        Rendering  72%                 │
+│  ● Product Showcase    Waiting                         │
+│  ● Tips Bisnis #12     Completed                       │
+│                                                       │
+├───────────────────────────────────────────────────────┤
+│                                                       │
+│  Upcoming Content                                     │
+│                                                       │
+│  Aug 19  → Account A → Instagram                      │
+│  Aug 20  → Account B → TikTok                         │
+│  Aug 21  → Account C → YouTube                        │
+│                                                       │
+└───────────────────────────────────────────────────────┘
+KPI
+Total Content
+Draft
+Ready
+Rendering
+Rendered
+Scheduled
+Published
+Failed
+7. Account Management
+
+Karena kamu mempunyai 3 akun dan beberapa platform, model datanya sebaiknya:
+
+Account
+   │
+   ├── Platform
+   │
+   ├── Content
+   │
+   └── Publishing Profile
+
+Contoh:
+
+Account
+├── Glen Business
+│   ├── Instagram
+│   ├── TikTok
+│   └── YouTube
+│
+├── Brand A
+│   ├── Instagram
+│   └── TikTok
+│
+└── Brand B
+    ├── Instagram
+    └── YouTube
+Account Card
+┌────────────────────────────┐
+│ 🟣 Brand A                 │
+│                            │
+│ Instagram     ● Active     │
+│ TikTok        ● Active     │
+│ YouTube       ● Active     │
+│                            │
+│ 34 Contents                │
+│ 12 Published               │
+│                            │
+│ [Manage]                   │
+└────────────────────────────┘
+8. Content Management
+
+Ini adalah modul terpenting.
+
+Setiap content mempunyai lifecycle:
+
+IDEA
+ ↓
+DRAFT
+ ↓
+READY
+ ↓
+RENDERING
+ ↓
+RENDERED
+ ↓
+SCHEDULED
+ ↓
+PUBLISHED
+
+Jika gagal:
+
+RENDERING
+     ↓
+   FAILED
+     ↓
+  RETRY
+Content fields
+id
+title
+description
+status
+account
+platform
+template
+html_file
+assets
+output
+caption
+hashtags
+scheduled_at
+created_at
+updated_at
+
+Tetapi tidak perlu database.
+
+Semua disimpan sebagai JSON.
+
+Contoh:
+
+/content/
+    content-001/
+        content.json
+        content.html
+        thumbnail.png
+        output.mp4
+9. Content Detail
+
+Saat user membuka content:
+
+┌───────────────────────────────────────────────────────┐
+│ Promo Produk August                                   │
+│                                                       │
+│ Account: Brand A                                      │
+│ Platform: Instagram                                   │
+│ Status: RENDERED                                      │
+│                                                       │
+├──────────────────────────┬────────────────────────────┤
+│                          │                            │
+│                          │ Content Information        │
+│       PREVIEW            │                            │
+│                          │ Template                   │
+│                          │ Modern Promo               │
+│                          │                            │
+│                          │ Duration                   │
+│                          │ 15 sec                     │
+│                          │                            │
+│                          │ Resolution                 │
+│                          │ 1080 × 1920                │
+│                          │                            │
+├──────────────────────────┴────────────────────────────┤
+│                                                       │
+│ Caption                                               │
+│ Lorem ipsum...                                        │
+│                                                       │
+│ #marketing #business                                  │
+│                                                       │
+│ [Edit] [Render] [Duplicate] [Export]                 │
+└───────────────────────────────────────────────────────┘
+10. HTML Content Builder
+
+Karena kamu menggunakan HTML sebagai sumber visual, jangan membuat editor visual kompleks dulu.
+
+Lebih baik:
+
+HTML Editor
+     +
+Live Preview
+     +
+Template
+
+Layout:
+
+┌──────────────────────┬───────────────────────────────┐
+│                      │                               │
+│ HTML                 │       LIVE PREVIEW            │
+│                      │                               │
+│ <div class="post">   │       ┌──────────────┐       │
+│   <h1>...</h1>       │       │              │       │
+│ </div>               │       │   PREVIEW    │       │
+│                      │       │              │       │
+│                      │       │              │       │
+│                      │       └──────────────┘       │
+│                      │                               │
+└──────────────────────┴───────────────────────────────┘
+
+Untuk MVP bisa menggunakan:
+
+Monaco Editor
+iframe preview
+Tailwind/CSS
+local assets
+11. Template Management
+
+Template merupakan salah satu fitur yang sangat penting.
+
+Contoh:
+
+/templates/
+
+
+├── quote/
+│   ├── template.json
+│   ├── index.html
+│   └── assets/
+│
+├── product/
+│   ├── template.json
+│   ├── index.html
+│   └── assets/
+│
+├── news/
+│   ├── template.json
+│   ├── index.html
+│   └── assets/
+│
+└── story/
+    ├── template.json
+    ├── index.html
+    └── assets/
+
+Template dapat mempunyai variable:
+
+<h1>{{title}}</h1>
+
+
+<p>{{description}}</p>
+
+
+<img src="{{image}}" />
+
+
+<span>{{brand}}</span>
+
+Kemudian content:
+
+{
+  "title": "5 Tips Membangun Bisnis",
+  "description": "Berikut beberapa tips...",
+  "brand": "Rantai Bisnis"
+}
+
+Engine melakukan:
+
+Template
++
+Content Data
++
+Assets
+        ↓
+     HTML
+        ↓
+     Render
+12. Asset Manager
+
+Asset manager mengelola:
+
+image
+video
+audio
+font
+logo
+music
+overlay
+
+Contoh:
+
+/assets/
+
+
+├── images/
+│   ├── product-01.png
+│   ├── product-02.png
+│   └── background.jpg
+│
+├── audio/
+│   ├── music-01.mp3
+│   └── voice-01.wav
+│
+├── video/
+│   └── intro.mp4
+│
+└── fonts/
+    └── Inter.ttf
+
+Dashboard:
+
+┌─────────────────────────────────────────────┐
+│ Assets                         [+ Upload]    │
+├─────────────────────────────────────────────┤
+│                                             │
+│ 🖼 product-01.png                           │
+│ 🖼 product-02.png                           │
+│ 🎵 music-01.mp3                             │
+│ 🎬 intro.mp4                                │
+│                                             │
+└─────────────────────────────────────────────┘
+13. FFmpeg Render Engine
+
+Ini bagian yang membuat aplikasi kamu menarik.
+
+Workflow:
+
+HTML
+ ↓
+Browser Renderer
+ ↓
+Frames / Video Capture
+ ↓
+FFmpeg
+ ↓
+MP4
+
+Untuk rendering HTML ke video, saya lebih menyarankan menggunakan Playwright/Chromium untuk rendering halaman, lalu FFmpeg untuk encoding/compositing.
+
+Misalnya:
+
+HTML 1080x1920
+      ↓
+Chromium
+      ↓
+Frame capture
+      ↓
+FFmpeg
+      ↓
+1080x1920 MP4
+
+FFmpeg dapat menangani:
+
+encoding
+audio
+background music
+concatenation
+overlay
+scaling
+FPS
+bitrate
+thumbnail
+watermark
+14. Render Queue
+
+Jangan menjalankan semua FFmpeg process bersamaan.
+
+Buat local queue:
+
+Render Queue
+
+
+┌─────────────────────────────────────────────┐
+│ #001 Promo August                           │
+│ ███████████████░░░░ 72%                     │
+│ Rendering                                   │
+├─────────────────────────────────────────────┤
+│ #002 Product Showcase                       │
+│ Waiting                                     │
+├─────────────────────────────────────────────┤
+│ #003 Tips Bisnis                            │
+│ ✓ Completed                                 │
+└─────────────────────────────────────────────┘
+
+Config:
+
+Max Concurrent Render: 1
+
+atau:
+
+Max Concurrent Render: 2
+
+Jadi CPU/GPU tidak langsung penuh.
+
+15. Preset Rendering
+
+Karena targetnya beberapa sosial media, buat preset.
+
+Instagram Reels
+1080 × 1920
+30 FPS
+H.264
+AAC
+MP4
+TikTok
+1080 × 1920
+30 FPS
+H.264
+AAC
+MP4
+YouTube Shorts
+1080 × 1920
+30 FPS
+H.264
+AAC
+MP4
+YouTube
+1920 × 1080
+30 FPS
+H.264
+AAC
+MP4
+
+Kemudian user tinggal:
+
+Render Preset
+
+
+[ Instagram Reels ▼ ]
+
+
+[ Render ]
+16. Calendar
+
+Calendar digunakan untuk melihat distribusi konten.
+
+August 2026
+
+
+MON   TUE   WED   THU   FRI   SAT   SUN
+
+
+17    18    19    20    21    22    23
+
+
+            ● A     ● B
+            IG      TT
+
+
+24    25    26    27    28    29    30
+
+
+● A         ● C
+YT          IG
+
+Filter:
+
+Account
+Platform
+Status
+Template
+17. Publishing Management
+
+Untuk MVP, saya sarankan jangan langsung membuat auto-publisher untuk semua platform.
+
+Buat:
+
+READY TO PUBLISH
+
+kemudian:
+
+┌─────────────────────────────────────┐
+│ Promo August                        │
+│                                     │
+│ Instagram                           │
+│ TikTok                              │
+│                                     │
+│ Caption                             │
+│ #business #marketing                │
+│                                     │
+│ [Copy Caption]                      │
+│ [Open Output Folder]                │
+│ [Mark as Published]                 │
+└─────────────────────────────────────┘
+
+Nanti bisa ditingkatkan menjadi:
+
+Social Media API
+       ↓
+Auto Publisher
+18. Struktur Storage Tanpa Database
+
+Saya justru menyarankan struktur seperti ini:
+
+social-content-studio/
+│
+├── app/
+│
+├── data/
+│   │
+│   ├── accounts/
+│   │   ├── account-001.json
+│   │   ├── account-002.json
+│   │   └── account-003.json
+│   │
+│   ├── contents/
+│   │   ├── content-001/
+│   │   │   ├── content.json
+│   │   │   ├── content.html
+│   │   │   ├── assets/
+│   │   │   └── output/
+│   │   │
+│   │   └── content-002/
+│   │
+│   ├── templates/
+│   │   ├── template-001/
+│   │   └── template-002/
+│   │
+│   └── settings.json
+│
+├── assets/
+│
+├── renders/
+│
+├── logs/
+│
+└── config/
+
+Dengan demikian database tidak diperlukan sama sekali.
+
+19. JSON Metadata
+
+Contoh:
+
+{
+  "id": "content-001",
+  "title": "5 Tips Bisnis",
+  "status": "rendered",
+  "accounts": [
+    {
+      "accountId": "account-001",
+      "platform": "instagram"
+    },
+    {
+      "accountId": "account-001",
+      "platform": "tiktok"
+    }
+  ],
+  "templateId": "template-business-01",
+  "html": "content.html",
+  "output": {
+    "video": "output/video.mp4",
+    "thumbnail": "output/thumbnail.jpg"
+  },
+  "caption": "5 tips bisnis yang wajib kamu tahu.",
+  "hashtags": [
+    "#bisnis",
+    "#marketing"
+  ],
+  "createdAt": "2026-08-18T10:00:00Z",
+  "updatedAt": "2026-08-18T10:30:00Z"
+}
+20. Jangan simpan semuanya dalam satu JSON
+
+Saya tidak menyarankan:
+
+contents.json
+
+yang berisi ribuan content.
+
+Lebih baik:
+
+contents/
+├── 001/
+│   └── content.json
+├── 002/
+│   └── content.json
+├── 003/
+│   └── content.json
+
+Keuntungannya:
+
+lebih aman
+mudah backup
+mudah dipindahkan
+mudah git
+corruption tidak merusak semua data
+mudah menghapus content
+mudah membuat archive
+21. Backup
+
+Karena tidak ada database, backup menjadi penting.
+
+Tambahkan:
+
+Settings
+   ↓
+Backup
+   ↓
+Export Project
+
+Output:
+
+social-content-backup-2026-08-18.zip
+
+Isi:
+
+data/
+assets/
+templates/
+settings/
+
+Dan:
+
+Import Project
+
+untuk restore.
+
+22. Teknologi yang saya rekomendasikan
+
+Karena kamu sudah familiar dengan Next.js, saya akan membuat:
+
+Frontend
+Next.js
+React
+Tailwind CSS
+shadcn/ui
+Framer Motion
+Monaco Editor
+Local backend
+
+Daripada API external:
+
+Next.js Server Actions
++
+Node.js filesystem
++
+child_process
+
+Untuk FFmpeg:
+
+Node.js
+    ↓
+child_process.spawn()
+    ↓
+FFmpeg
+HTML renderer
+Playwright
+Chromium
+Storage
+JSON
+Filesystem
+Tidak perlu
+❌ PostgreSQL
+❌ Supabase
+❌ Redis
+❌ S3
+❌ Cloud Storage
+❌ Authentication server
+
+Karena aplikasinya memang local.
+
+23. Arsitektur
+
+Saya akan membuatnya seperti:
+
+┌──────────────────────────────────────────┐
+│                Next.js UI                │
+├──────────────────────────────────────────┤
+│ Dashboard │ Content │ Template │ Assets  │
+└──────────────────┬───────────────────────┘
+                   │
+                   ▼
+          ┌──────────────────┐
+          │ Local App Layer  │
+          ├──────────────────┤
+          │ Content Service  │
+          │ Account Service  │
+          │ Template Service │
+          │ Asset Service    │
+          │ Render Service   │
+          └────────┬─────────┘
+                   │
+       ┌───────────┼────────────┐
+       ▼           ▼            ▼
+   Filesystem   Playwright    FFmpeg
+       │           │            │
+       ▼           ▼            ▼
+      JSON        HTML         MP4
+24. Fitur yang menurut saya paling penting
+
+Prioritasnya:
+
+P0 — MVP
+ Dashboard
+ Account management
+ Platform management
+ Content management
+ HTML editor
+ Live preview
+ Template management
+ Asset management
+ FFmpeg rendering
+ Render queue
+ Render preset
+ Output management
+ Content status
+ Local JSON storage
+P1
+ Calendar
+ Duplicate content
+ Batch rendering
+ Caption management
+ Hashtag management
+ Thumbnail generation
+ Project backup
+ Import/export
+ Render history
+P2
+ Auto publishing
+ Social media API
+ Analytics
+ Content performance
+ AI caption generation
+ AI content ideas
+ Automated content generation
+25. Fitur yang bisa menjadi "killer feature"
+
+Karena kamu membuat konten dengan HTML + FFmpeg, saya justru akan membuat konsep Content Pipeline.
+
+Misalnya kamu punya:
+
+Template:
+Business Quote
+
+Input:
+
+{
+  "quote": "Consistency beats motivation.",
+  "author": "Glen",
+  "background": "bg-01.jpg"
+}
+
+Kemudian tekan:
+
+Generate
+
+Aplikasi otomatis:
+
+JSON
+ ↓
+HTML Template
+ ↓
+Preview
+ ↓
+Render
+ ↓
+FFmpeg
+ ↓
+1080x1920.mp4
+ ↓
+Thumbnail
+ ↓
+Content Ready
+
+Bahkan nantinya bisa batch:
+
+quotes.csv
+
+
+100 quotes
+    ↓
+100 HTML
+    ↓
+100 videos
+
+Render queue akan menangani semuanya.
+
+Ini jauh lebih cocok dengan workflow kamu dibandingkan dashboard social-media biasa.
+
+26. Struktur UI final
+
+Saya akan menggunakan sidebar:
+
+┌──────────────────────┐
+│ SOCIAL STUDIO        │
+│                      │
+│ 🏠 Dashboard         │
+│                      │
+│ CONTENT              │
+│ ├ All Content        │
+│ ├ Draft              │
+│ ├ Ready              │
+│ ├ Scheduled          │
+│ └ Published          │
+│                      │
+│ PRODUCTION           │
+│ ├ Render Queue       │
+│ ├ Templates          │
+│ └ Assets             │
+│                      │
+│ DISTRIBUTION         │
+│ ├ Calendar           │
+│ └ Accounts           │
+│                      │
+│ SYSTEM               │
+│ ├ Logs               │
+│ └ Settings           │
+└──────────────────────┘
+
+Dan dashboard utama dibuat clean seperti production control panel, bukan dashboard enterprise yang terlalu penuh.
+
+27. Rekomendasi pengembangan
+
+Saya akan membaginya menjadi 4 fase:
+
+Phase 1 — Foundation
+
+Next.js
+Filesystem
+JSON
+Account
+Content
+Template
+Asset
+
+Phase 2 — Content Production
+
+HTML Editor
+Preview
+Playwright
+FFmpeg
+Render Queue
+Preset
+
+Phase 3 — Content Operations
+
+Calendar
+Caption
+Publishing status
+Batch render
+Backup
+Logs
+
+Phase 4 — Automation
+
+Social Media API
+Auto publish
+AI generation
+Analytics
+Batch content generation
+
+Dengan desain seperti ini, aplikasi awalnya bisa 100% lokal dan tanpa database, tetapi arsitekturnya tetap memungkinkan nanti ditingkatkan menjadi content automation platform tanpa harus membongkar seluruh sistem.
+
+jadi saya ada 3 akun glen rio aristo, jacksonlab, highproduct nah seperti jacksonlab itu dia bisa ambil resource content dari internet atau biasanya di twiter ambil video dan nanti video itu di gabung dengan overlay yang ada branding jacksonlab, jadi ada case saya juga bisa menyisipkan file video manual begitu jadi memang perlu ada beberapa template gitu dan ada case seperti glen rio aristo itu hanya menyisipkan file manual  dan lebiih baik pengimplementasian perlu framework tidak karena agar ketika agent ai saya mengedit overlay dengan video hasil downloadan di dashboard langsung terlihat perubahannya update PRDnya
+
+Nah, dengan tambahan requirement ini, PRD sebelumnya memang perlu diubah cukup signifikan.
+
+Karena workflow-mu bukan sekadar "menyimpan dan merender konten", tetapi lebih seperti local content production pipeline:
+
+Glen Rio Aristo → mostly manual video → template/branding → render
+JacksonLab → ambil resource dari internet/X → download video → gabungkan dengan overlay branding JacksonLab → render
+HighProduct → bisa punya workflow affiliate/product content → resource + overlay/template
+AI agent bisa mengubah overlay/template/file → dashboard harus otomatis melihat perubahan
+Semua asset dan proses tetap local
+Tidak menggunakan database
+
+Untuk kasus seperti ini, saya lebih menyarankan menggunakan framework desktop, bukan Next.js standalone biasa.
+
+PRD v2 — Local Social Content Production Studio
+1. Product Concept
+
+Aplikasi ini bukan hanya dashboard social media.
+
+Lebih tepatnya:
+
+Local Content Production & Automation Studio
+
+Yang mengatur:
+
+Resource
+   ↓
+Content
+   ↓
+Template
+   ↓
+Overlay
+   ↓
+Composition
+   ↓
+Render
+   ↓
+Output
+   ↓
+Publishing
+
+Dan setiap account dapat mempunyai pipeline berbeda.
+
+2. Tiga Account
+Account 1 — Glen Rio Aristo
+
+Karakter:
+
+Personal / professional content
+
+Workflow:
+
+Manual Video
+     ↓
+Select Template
+     ↓
+Branding Overlay
+     ↓
+Render
+     ↓
+Output
+
+Contoh:
+
+video.mp4
+    +
+glen-overlay.png
+    ↓
+FFmpeg
+    ↓
+glen-rio-aristo.mp4
+
+Tidak perlu internet resource downloader.
+
+3. Account 2 — JacksonLab
+
+Ini yang lebih kompleks.
+
+Workflow:
+
+Internet
+   ↓
+Resource Discovery
+   ↓
+Download Video
+   ↓
+Resource Library
+   ↓
+Select Video
+   ↓
+JacksonLab Overlay
+   ↓
+Composition
+   ↓
+FFmpeg
+   ↓
+Output
+
+Contoh:
+
+X / Internet
+      ↓
+video-source.mp4
+      ↓
+┌──────────────────────┐
+│ JacksonLab Overlay   │
+│                      │
+│       VIDEO          │
+│                      │
+│  @jacksonlab         │
+└──────────────────────┘
+      ↓
+FFmpeg
+      ↓
+jacksonlab-final.mp4
+4. Account 3 — HighProduct
+
+Bisa dibuat sebagai workflow product/affiliate:
+
+Product Resource
+      ↓
+Video / Image
+      ↓
+HighProduct Template
+      ↓
+Product Overlay
+      ↓
+CTA
+      ↓
+Render
+
+Misalnya:
+
+Product Video
+     +
+Product Name
+     +
+Price
+     +
+CTA
+     +
+HighProduct Branding
+     ↓
+Final Video
+5. Konsep paling penting: Pipeline
+
+Jangan membuat setiap account hardcode.
+
+Buat konsep:
+
+Account
+   ↓
+Workflow
+   ↓
+Template
+   ↓
+Inputs
+   ↓
+Renderer
+
+Contohnya:
+
+Glen Rio Aristo
+└── Manual Video
+    └── Personal Overlay
+        └── Vertical 1080x1920
+
+
+JacksonLab
+└── Internet Resource
+    └── JacksonLab Overlay
+        └── Vertical 1080x1920
+
+
+HighProduct
+└── Product Resource
+    └── Product Template
+        └── CTA Overlay
+            └── Vertical 1080x1920
+
+Jadi nanti kamu bisa menambahkan account ke-4 tanpa mengubah core engine.
+
+6. Template jangan hanya HTML
+
+Ini perubahan penting dari PRD sebelumnya.
+
+Template sebaiknya mempunyai beberapa tipe.
+
+Template
+├── HTML Template
+├── Video Overlay
+├── Image Overlay
+├── FFmpeg Composition
+└── Caption Template
+
+Contoh:
+
+templates/
+│
+├── glen-personal/
+│   ├── template.json
+│   ├── overlay/
+│   │   └── overlay.png
+│   └── composition.json
+│
+├── jacksonlab-news/
+│   ├── template.json
+│   ├── overlay/
+│   │   └── overlay.png
+│   └── composition.json
+│
+└── highproduct-product/
+    ├── template.json
+    ├── overlay/
+    │   └── overlay.png
+    └── composition.json
+7. Template Definition
+
+Contoh JacksonLab:
+
+{
+  "id": "jacksonlab-news",
+  "name": "JacksonLab News",
+  "type": "video-overlay",
+  "account": "jacksonlab",
+
+
+  "input": {
+    "type": "video"
+  },
+
+
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+
+
+  "overlay": {
+    "file": "overlay/overlay.png",
+    "position": "center"
+  },
+
+
+  "audio": {
+    "enabled": true
+  }
+}
+
+Jadi engine tahu:
+
+Ambil video → masukkan overlay → encode → output 1080×1920.
+
+8. Resource Library
+
+JacksonLab membutuhkan resource manager.
+
+Misalnya:
+
+Resources
+
+
+┌────────────────────────────────────────────────────┐
+│ 🔎 Search resource...                              │
+├────────────────────────────────────────────────────┤
+│                                                    │
+│ 🎬 Elon Musk AI News                               │
+│ Source: X                                          │
+│ 00:32                                              │
+│                                                    │
+│ [Preview] [Use Content]                            │
+│                                                    │
+├────────────────────────────────────────────────────┤
+│ 🎬 AI Robot Update                                 │
+│ Source: X                                          │
+│ 00:45                                              │
+│                                                    │
+│ [Preview] [Use Content]                            │
+└────────────────────────────────────────────────────┘
+
+Resource mempunyai:
+
+resource
+├── source
+├── source_url
+├── downloaded_file
+├── thumbnail
+├── duration
+├── resolution
+├── created_at
+└── tags
+9. Manual Upload
+
+Ini harus menjadi first-class feature, bukan fitur tambahan.
+
+Misalnya Glen:
+
+New Content
+
+
+Source
+
+
+○ Internet Resource
+● Upload Local Video
+
+
+[ Drop video here ]
+
+
+video-glen-001.mp4
+
+Kemudian:
+
+Select Template
+
+
+[Glen Personal 01]
+[Glen Personal 02]
+[Glen Minimal]
+
+Klik:
+
+Render
+
+10. Content Creation Wizard
+
+Saya malah menyarankan membuat workflow seperti wizard.
+
+Step 1 — Account
+Select Account
+
+
+○ Glen Rio Aristo
+○ JacksonLab
+○ HighProduct
+Step 2 — Resource
+
+Untuk Glen:
+
+○ Upload Video
+○ Select Existing Resource
+
+JacksonLab:
+
+○ Download Resource
+○ Select Existing Resource
+○ Upload Video
+Step 3 — Template
+Select Template
+
+
+┌──────────────┐
+│ Jackson News │
+│              │
+│   PREVIEW    │
+└──────────────┘
+
+
+┌──────────────┐
+│ Jackson Tech │
+│              │
+│   PREVIEW    │
+└──────────────┘
+Step 4 — Customize
+Overlay
+
+
+Logo        [jacksonlab.png]
+Position    [Top Right]
+Opacity     [100%]
+
+
+Text        [@jacksonlab]
+Font        [Inter]
+Step 5 — Preview
+┌───────────────────────┐
+│                       │
+│      VIDEO            │
+│                       │
+│       +               │
+│     OVERLAY            │
+│                       │
+└───────────────────────┘
+
+
+[Render]
+11. Yang paling penting: Live File Watching
+
+Nah, ini menjawab requirement AI agent-mu.
+
+Misalnya AI agent mengubah:
+
+templates/jacksonlab/overlay.png
+
+Dashboard tidak boleh harus direfresh manual.
+
+Workflow:
+
+AI Agent
+   ↓
+ubah overlay.png
+   ↓
+Filesystem
+   ↓
+File Watcher
+   ↓
+Event
+   ↓
+Dashboard
+   ↓
+Preview update
+
+Misalnya:
+
+overlay.png
+     ↓
+modified
+     ↓
+watcher detects
+     ↓
+"template.updated"
+     ↓
+React state update
+     ↓
+Preview reload
+
+Jadi agent bisa bekerja di filesystem sementara dashboard menjadi visual interface untuk melihat hasilnya.
+
+12. Ini alasan saya menyarankan framework desktop
+
+Untuk requirement seperti:
+
+membaca filesystem
+menulis filesystem
+menjalankan FFmpeg
+menjalankan download process
+menjalankan process lain
+file watcher
+AI agent mengubah file
+dashboard realtime
+local-only
+
+Saya tidak akan membuatnya sebagai web app biasa yang deploy ke Vercel.
+
+Lebih cocok:
+
+Electron + React + Vite
+
+Arsitektur:
+
+┌─────────────────────────────────────┐
+│             Electron                │
+│                                     │
+│  ┌───────────────────────────────┐  │
+│  │        React Dashboard        │  │
+│  │                               │  │
+│  │ Content / Templates / Preview │  │
+│  └───────────────┬───────────────┘  │
+│                  │ IPC              │
+│  ┌───────────────▼───────────────┐  │
+│  │        Local Services         │  │
+│  │                               │  │
+│  │ File Manager                  │  │
+│  │ File Watcher                  │  │
+│  │ FFmpeg Manager                │  │
+│  │ Downloader                    │  │
+│  │ Render Queue                  │  │
+│  │ AI Agent Bridge               │  │
+│  └───────────────┬───────────────┘  │
+│                  │                  │
+└──────────────────┼──────────────────┘
+                   │
+        ┌──────────┼───────────┐
+        ▼          ▼           ▼
+    Filesystem   FFmpeg    External Web
+13. Kenapa bukan Next.js?
+
+Next.js sebenarnya bisa.
+
+Tetapi untuk kasusmu:
+
+Next.js
+   +
+Node
+   +
+Filesystem
+   +
+FFmpeg
+   +
+File Watcher
+
+akan terasa seperti memaksa web framework menjadi desktop application.
+
+Kalau aplikasinya memang:
+
+"Dashboard lokal untuk production content"
+
+maka Electron lebih natural.
+
+14. Electron vs Tauri
+
+Saya akan pilih:
+
+MVP → Electron
+
+Karena kamu akan banyak berurusan dengan:
+
+Node.js
+FFmpeg
+filesystem
+download
+child_process
+watcher
+AI agent
+
+Node ecosystem sangat membantu.
+
+Tauri memang lebih ringan, tetapi kamu akan mempunyai:
+
+React
+   +
+Rust
+   +
+FFmpeg
+   +
+Filesystem
+   +
+Process management
+
+dan kompleksitasnya bertambah.
+
+Untuk proyek ini:
+
+Developer productivity > ukuran binary
+
+Jadi saya pilih Electron.
+
+15. AI Agent Architecture
+
+Ini justru bisa menjadi bagian yang sangat menarik.
+
+Jangan biarkan AI agent langsung mengubah state dashboard.
+
+Biarkan AI agent bekerja terhadap workspace filesystem.
+
+AI Agent
+   │
+   ├── create content
+   ├── modify HTML
+   ├── modify overlay
+   ├── download resource
+   └── modify template
+          │
+          ▼
+      Workspace
+          │
+          ▼
+      File Watcher
+          │
+          ▼
+      Event Bus
+          │
+          ▼
+      React Dashboard
+
+Dengan demikian dashboard selalu mencerminkan filesystem yang sebenarnya.
+
+16. Event System
+
+Contohnya:
+
+file.created
+file.modified
+file.deleted
+
+
+content.created
+content.updated
+
+
+template.updated
+
+
+render.started
+render.progress
+render.completed
+render.failed
+
+
+resource.downloaded
+
+Misalnya FFmpeg:
+
+render.started
+      ↓
+render.progress 10%
+      ↓
+render.progress 25%
+      ↓
+render.progress 50%
+      ↓
+render.progress 90%
+      ↓
+render.completed
+
+Dashboard langsung berubah.
+
+17. Preview juga jangan hanya membaca database
+
+Karena tidak ada database:
+
+Filesystem
+    ↓
+Watcher
+    ↓
+State
+    ↓
+Preview
+
+Contoh AI mengubah:
+
+overlay.png
+
+React mendapatkan event:
+
+template.updated
+
+kemudian:
+
+previewUrl = overlay.png?t=timestamp
+
+Browser tidak menggunakan cache lama.
+
+Hasilnya dashboard langsung menunjukkan overlay terbaru.
+
+18. Bahkan HTML juga bisa live update
+
+Ini cocok sekali dengan workflow-mu.
+
+Misalnya agent mengedit:
+
+templates/jacksonlab/index.html
+
+Watcher:
+
+index.html modified
+
+Dashboard:
+
+HTML Preview
+     ↓
+reload iframe
+
+Jadi kamu bisa membuka:
+
+┌──────────────────┬────────────────────┐
+│                  │                    │
+│   AI/Code Agent  │     Dashboard      │
+│                  │                    │
+│ index.html       │   LIVE PREVIEW     │
+│                  │                    │
+│ overlay.png      │   ┌────────────┐   │
+│                  │   │            │   │
+│                  │   │   VIDEO    │   │
+│                  │   │   + LOGO   │   │
+│                  │   │            │   │
+│                  │   └────────────┘   │
+│                  │                    │
+└──────────────────┴────────────────────┘
+
+Ini menurut saya fitur utama aplikasi kamu.
+
+19. Struktur Project yang saya sarankan
+social-studio/
+│
+├── apps/
+│   ├── desktop/
+│   │   ├── electron/
+│   │   │   ├── main.ts
+│   │   │   ├── ipc/
+│   │   │   ├── services/
+│   │   │   └── watchers/
+│   │   │
+│   │   └── renderer/
+│   │       ├── components/
+│   │       ├── pages/
+│   │       ├── hooks/
+│   │       └── stores/
+│   │
+│   └── agent/
+│
+├── packages/
+│   ├── content-engine/
+│   ├── render-engine/
+│   ├── template-engine/
+│   ├── resource-engine/
+│   ├── filesystem/
+│   └── shared/
+│
+├── workspace/
+│
+│   ├── accounts/
+│   │   ├── glen-rio-aristo/
+│   │   ├── jacksonlab/
+│   │   └── highproduct/
+│   │
+│   ├── resources/
+│   │
+│   ├── templates/
+│   │
+│   ├── contents/
+│   │
+│   ├── renders/
+│   │
+│   └── config/
+│
+└── tools/
+    └── ffmpeg/
+20. Account sebagai configuration
+
+Jangan hardcode:
+
+if (account === "jacksonlab") ...
+
+Lebih baik:
+
+{
+  "id": "jacksonlab",
+  "name": "JacksonLab",
+
+
+  "workflows": [
+    "internet-video",
+    "manual-video"
+  ],
+
+
+  "templates": [
+    "jackson-news",
+    "jackson-tech"
+  ],
+
+
+  "branding": {
+    "logo": "branding/jacksonlab.png",
+    "watermark": "@jacksonlab"
+  }
+}
+
+Glen:
+
+{
+  "id": "glen-rio-aristo",
+  "name": "Glen Rio Aristo",
+
+
+  "workflows": [
+    "manual-video"
+  ],
+
+
+  "templates": [
+    "glen-personal"
+  ]
+}
+
+HighProduct:
+
+{
+  "id": "highproduct",
+  "name": "HighProduct",
+
+
+  "workflows": [
+    "product-video",
+    "manual-video"
+  ],
+
+
+  "templates": [
+    "highproduct-product"
+  ]
+}
+21. Maka dashboard-nya bisa berubah berdasarkan Account
+
+Ketika pilih:
+
+Glen Rio Aristo
+Glen Rio Aristo
+
+
+[Upload Video]
+
+
+Templates
+├── Personal
+├── Minimal
+└── Professional
+
+
+Recent Content
+JacksonLab
+JacksonLab
+
+
+[Find Resource]
+[Download Video]
+[Upload Video]
+
+
+Templates
+├── News
+├── Tech
+├── Commentary
+└── Breaking
+
+
+Resources
+├── Recent Downloads
+└── Saved Resources
+HighProduct
+HighProduct
+
+
+[Add Product]
+[Upload Video]
+[Import Resource]
+
+
+Templates
+├── Product Showcase
+├── Promo
+├── Review
+└── CTA
+
+Jadi satu dashboard tetapi workflow berbeda.
+
+22. Revised MVP
+
+Saya akan mengubah prioritas MVP menjadi:
+
+P0 — Core
+ Electron desktop
+ React + Vite
+ Local filesystem
+ JSON metadata
+ 3 account
+ Account-specific workflow
+ Template system
+ Manual video upload
+ Asset manager
+ HTML editor
+ Live HTML preview
+ Overlay management
+ FFmpeg engine
+ Render queue
+ Output manager
+ File watcher
+ Realtime dashboard update
+P1 — JacksonLab
+ Internet resource manager
+ Resource download
+ Source URL metadata
+ Video thumbnail extraction
+ Resource preview
+ Download history
+ Resource → Content pipeline
+P2 — AI Agent
+ Agent workspace
+ Agent file modification
+ Agent template modification
+ Agent overlay generation/edit
+ Agent render command
+ Agent resource management
+ Realtime agent activity
+P3 — Publishing
+ Content calendar
+ Caption manager
+ Publishing checklist
+ Social platform integration
+ Auto publishing
+23. Satu perubahan arsitektur yang sangat saya rekomendasikan
+
+Jangan anggap video sebagai "content".
+
+Pisahkan:
+
+RESOURCE
+   ↓
+COMPOSITION
+   ↓
+OUTPUT
+
+Contoh JacksonLab:
+
+RESOURCE
+twitter-video.mp4
+        ↓
+COMPOSITION
+jacksonlab-news
+        ↓
+OUTPUT
+jacksonlab-news-001.mp4
+
+Sedangkan Glen:
+
+RESOURCE
+glen-manual-video.mp4
+        ↓
+COMPOSITION
+glen-personal
+        ↓
+OUTPUT
+glen-personal-001.mp4
+
+Ini membuat sistem jauh lebih fleksibel.
+
+24. Dan saya akan membuat satu konsep lagi: "Recipe"
+
+Ini akan sangat berguna untuk AI agent.
+
+Contoh:
+
+Recipe: JacksonLab News
+
+
+INPUT
+├── video
+└── optional audio
+
+
+PROCESS
+├── crop 9:16
+├── scale 1080x1920
+├── overlay jacksonlab.png
+├── add watermark
+└── normalize audio
+
+
+OUTPUT
+└── mp4
+
+Sedangkan:
+
+Recipe: Glen Personal
+
+
+INPUT
+└── video
+
+
+PROCESS
+├── scale 1080x1920
+├── overlay glen.png
+└── add intro
+
+
+OUTPUT
+└── mp4
+
+Recipe ini bisa direpresentasikan sebagai JSON dan AI agent dapat membacanya/mengubahnya.
+
+Kesimpulan saya
+
+Dengan requirement terbarumu, saya akan mengubah rekomendasi dari:
+
+Next.js local dashboard
+
+menjadi:
+
+Electron + React + Vite + Node.js + FFmpeg + Playwright + Filesystem + JSON + File Watcher
+
+Karena aplikasi ini sebenarnya lebih dekat ke local creative production tool daripada website.
+
+Dan arsitektur utamanya:
+
+                         SOCIAL STUDIO
+                              │
+              ┌───────────────┼────────────────┐
+              │               │                │
+             GLEN        JACKSONLAB       HIGHPRODUCT
+              │               │                │
+          Manual Video    Internet/Manual   Product/Manual
+              │               │                │
+              └───────────────┼────────────────┘
+                              │
+                         RESOURCE
+                              │
+                         COMPOSITION
+                              │
+                    ┌─────────┴─────────┐
+                    │                   │
+                 Template            Overlay
+                    │                   │
+                    └─────────┬─────────┘
+                              │
+                           FFmpeg
+                              │
+                            OUTPUT
+                              │
+                        Content Library
+
+
+AI AGENT ──► Filesystem ──► File Watcher ──► Dashboard
+                                      │
+                                      └──► Live Preview
+
+Bagian AI Agent → Filesystem → Watcher → Dashboard inilah yang menurut saya harus menjadi fondasi sejak awal. Jadi agent tidak perlu "mengontrol UI". Agent cukup memodifikasi HTML, overlay, JSON, template, atau resource di workspace; dashboard otomatis membaca perubahan tersebut dan menampilkan kondisi terbaru. Itu akan membuat sistemmu jauh lebih mudah dikembangkan dan diotomatisasi.
+
+fokus saya ke reels atau potrait content
+
+Kalau fokusnya Reels / portrait content, PRD-nya bisa dibuat jauh lebih sederhana dan lebih tajam. Kita tidak perlu memikirkan YouTube landscape atau berbagai format dulu.
+
+Target utama:
+
+Membuat local content production studio khusus konten vertical 9:16 yang menggabungkan video, overlay branding, template, resource internet, dan FFmpeg.
+
+Format utama
+
+Semua pipeline default ke:
+
+1080 × 1920
+9:16
+30 FPS
+MP4
+H.264
+AAC
+
+Jadi setiap account punya workflow sendiri, tetapi engine render-nya sama.
+
+PRD — Vertical Content Studio
+1. Account
+Glen Rio Aristo
+
+Fokus:
+
+Manual Video
+      ↓
+Template
+      ↓
+Overlay
+      ↓
+FFmpeg
+      ↓
+Reels
+
+Tidak membutuhkan resource downloader.
+
+JacksonLab
+
+Fokus:
+
+Internet / X Resource
+        ↓
+Download Video
+        ↓
+Resource Library
+        ↓
+Template
+        ↓
+JacksonLab Overlay
+        ↓
+FFmpeg
+        ↓
+Reels
+
+Juga tetap bisa:
+
+Upload Video
+     ↓
+JacksonLab Template
+HighProduct
+
+Fokus:
+
+Product Video/Image
+        ↓
+Product Template
+        ↓
+Branding
+        ↓
+CTA
+        ↓
+FFmpeg
+        ↓
+Reels
+2. Core Content Pipeline
+
+Saya akan menjadikan ini inti aplikasi:
+
+┌───────────────┐
+│    RESOURCE   │
+│               │
+│ Video         │
+│ Image         │
+│ Audio         │
+└───────┬───────┘
+        ↓
+┌───────────────┐
+│   TEMPLATE    │
+│               │
+│ Layout        │
+│ Overlay       │
+│ Text          │
+│ Branding      │
+└───────┬───────┘
+        ↓
+┌───────────────┐
+│   COMPOSER    │
+│               │
+│ 1080 × 1920   │
+│ 9:16          │
+└───────┬───────┘
+        ↓
+┌───────────────┐
+│    FFMPEG     │
+└───────┬───────┘
+        ↓
+┌───────────────┐
+│ REELS OUTPUT  │
+│               │
+│ 1080 × 1920   │
+│ MP4           │
+└───────────────┘
+3. Template System
+
+Karena semuanya portrait, template bisa sangat spesifik.
+
+Contoh:
+
+Templates
+
+
+JacksonLab
+├── News Vertical
+├── Commentary
+├── Breaking News
+└── Minimal
+
+
+Glen Rio Aristo
+├── Personal
+├── Quote
+└── Talking Head
+
+
+HighProduct
+├── Product Showcase
+├── Product Review
+├── Promo
+└── CTA
+
+Setiap template selalu punya:
+
+Canvas
+1080 × 1920
+4. Template harus bisa terdiri dari layer
+
+Ini penting untuk kebutuhan AI agent.
+
+Jangan hanya:
+
+template.html
+
+Tetapi konsepnya:
+
+Canvas
+│
+├── Background
+├── Main Video
+├── Overlay
+├── Logo
+├── Text
+├── Subtitle
+├── CTA
+└── Watermark
+
+Misalnya JacksonLab:
+
+┌─────────────────────┐
+│ @JACKSONLAB         │ ← watermark
+│                     │
+│                     │
+│      MAIN VIDEO     │
+│                     │
+│                     │
+│                     │
+├─────────────────────┤
+│ HEADLINE            │
+│ AI IS CHANGING...   │
+├─────────────────────┤
+│ JACKSONLAB          │ ← branding
+└─────────────────────┘
+5. HTML sebagai Composition Layer
+
+Karena kamu ingin AI agent bisa mengedit overlay, HTML sangat cocok sebagai composition definition.
+
+Misalnya:
+
+templates/
+└── jacksonlab-news/
+    ├── template.json
+    ├── index.html
+    ├── style.css
+    └── assets/
+        ├── logo.png
+        └── overlay.png
+
+HTML bertugas mengatur visual:
+
+video
++
+logo
++
+overlay
++
+headline
++
+watermark
+
+Sedangkan FFmpeg bertugas menghasilkan video final.
+
+6. Live Preview
+
+Ini harus menjadi fitur utama dashboard.
+
+Layout:
+
+┌──────────────────────────────────────────────────┐
+│ JacksonLab News                                  │
+├──────────────────────┬───────────────────────────┤
+│                      │                           │
+│     HTML / CSS       │       LIVE PREVIEW        │
+│                      │                           │
+│ <video>              │      ┌────────────┐       │
+│ <overlay>            │      │            │       │
+│ <headline>           │      │   VIDEO    │       │
+│                      │      │            │       │
+│                      │      │  + OVERLAY │       │
+│                      │      │            │       │
+│                      │      └────────────┘       │
+│                      │                           │
+└──────────────────────┴───────────────────────────┘
+
+Preview selalu portrait.
+
+7. AI Agent Integration
+
+Ini menurut saya jangan dibuat sebagai fitur tambahan.
+
+Jadikan sejak awal sebagai prinsip arsitektur:
+
+Workspace = Source of Truth
+
+Contoh AI agent mengubah:
+
+templates/jacksonlab-news/index.html
+
+File watcher mendeteksi:
+
+index.html changed
+
+Dashboard:
+
+Template Updated
+↓
+Reload Preview
+
+User langsung melihat:
+
+BEFORE              AFTER
+
+
+┌───────┐           ┌───────┐
+│ VIDEO │           │ VIDEO │
+│       │     →     │       │
+│ LOGO  │           │ LOGO  │
+└───────┘           │ NEW   │
+                    │OVERLAY│
+                    └───────┘
+
+Tidak perlu:
+
+AI → API → Database → Dashboard
+
+Cukup:
+
+AI
+ ↓
+File
+ ↓
+Watcher
+ ↓
+Dashboard
+
+Ini jauh lebih simpel.
+
+8. Resource Manager JacksonLab
+
+Untuk JacksonLab, saya akan membuat halaman khusus:
+
+┌──────────────────────────────────────────────────┐
+│ Resource Library                                 │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│ [Paste URL]                       [Download]     │
+│                                                  │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│ ┌──────────┐ ┌──────────┐ ┌──────────┐          │
+│ │ VIDEO    │ │ VIDEO    │ │ VIDEO    │          │
+│ │          │ │          │ │          │          │
+│ │ 00:31    │ │ 00:42    │ │ 00:18    │          │
+│ └──────────┘ └──────────┘ └──────────┘          │
+│                                                  │
+└──────────────────────────────────────────────────┘
+
+Resource kemudian:
+
+Use as Content
+
+dan otomatis masuk ke composition.
+
+9. Manual Upload
+
+Semua account tetap mempunyai:
+
++ New Content
+
+Kemudian:
+
+Source
+
+
+○ Upload Video
+○ Existing Resource
+○ Internet Resource
+
+Tetapi opsi disesuaikan account.
+
+Glen
+✓ Upload Video
+✓ Existing Resource
+JacksonLab
+✓ Upload Video
+✓ Existing Resource
+✓ Internet Resource
+HighProduct
+✓ Upload Video
+✓ Existing Resource
+✓ Product Asset
+10. Content Dashboard
+
+Karena fokus Reels, tampilan content sebaiknya visual.
+
+Bukan tabel besar.
+
+┌────────────┐ ┌────────────┐ ┌────────────┐
+│            │ │            │ │            │
+│  PREVIEW   │ │  PREVIEW   │ │  PREVIEW   │
+│            │ │            │ │            │
+│            │ │            │ │            │
+├────────────┤ ├────────────┤ ├────────────┤
+│ AI News    │ │ Tips #12   │ │ Product A  │
+│ JacksonLab │ │ Glen       │ │ HighProduct│
+│ ✓ Rendered │ │ ● Draft    │ │ Rendering  │
+└────────────┘ └────────────┘ └────────────┘
+
+Ini akan terasa seperti media production dashboard, bukan admin panel.
+
+11. Status
+
+Untuk vertical content saya cukup menggunakan:
+
+IDEA
+ ↓
+DRAFT
+ ↓
+READY
+ ↓
+RENDERING
+ ↓
+READY TO POST
+ ↓
+POSTED
+
+Dan:
+
+FAILED
+
+jika render gagal.
+
+12. Render Queue
+
+Karena video portrait biasanya cukup berat, gunakan queue.
+
+Render Queue
+
+
+1. Jackson AI News       █████████░ 90%
+2. Glen Personal         Waiting
+3. HighProduct Promo     Waiting
+
+Default:
+
+Concurrency = 1
+
+Nanti bisa dinaikkan menjadi 2 jika hardware memungkinkan.
+
+13. Folder Structure
+
+Saya akan menyederhanakannya menjadi:
+
+workspace/
+│
+├── accounts/
+│   ├── glen-rio-aristo/
+│   ├── jacksonlab/
+│   └── highproduct/
+│
+├── resources/
+│
+├── templates/
+│
+├── contents/
+│
+├── renders/
+│
+└── config/
+
+Content:
+
+contents/
+└── content-001/
+    ├── content.json
+    ├── source.mp4
+    ├── composition.html
+    ├── thumbnail.jpg
+    └── output.mp4
+14. Teknologi
+
+Untuk requirement ini saya tetap memilih:
+
+Electron
+React
+Vite
+TypeScript
+Tailwind
+shadcn/ui
+Playwright
+FFmpeg
+Chokidar
+Zustand
+Kenapa Chokidar?
+
+Untuk:
+
+watch filesystem
+
+Misalnya:
+
+overlay.png
+index.html
+style.css
+template.json
+
+berubah → dashboard menerima event.
+
+15. Arsitektur final
+                  ELECTRON
+                     │
+       ┌─────────────┴──────────────┐
+       │                            │
+    React UI                   Node Services
+       │                            │
+       │                    ┌───────┼────────┐
+       │                    │       │        │
+       │                  FFmpeg  Watcher  Resource
+       │                    │       │        │
+       │                    │       │      Downloader
+       │                    │       │
+       └──────────────┬─────┘       │
+                      │             │
+                      ▼             ▼
+                  WORKSPACE FILESYSTEM
+                         │
+             ┌───────────┼───────────┐
+             │           │           │
+          Content     Templates    Resources
+             │           │           │
+             └───────────┼───────────┘
+                         │
+                    Live Preview
+Jadi fokus produk yang saya sarankan
+
+Jangan bangun "Social Media Manager" dulu.
+
+Bangun:
+
+Vertical Content Production Studio
+
+dengan tiga account:
+
+Glen Rio Aristo → Manual Production
+
+JacksonLab → Resource → Overlay Production
+
+HighProduct → Product → Overlay/CTA Production
+
+dan satu core engine:
+
+Resource → Template → Composition → Live Preview → FFmpeg → Ready to Post
+
+Yang paling penting, filesystem menjadi source of truth, sehingga AI agent bisa bekerja secara langsung pada HTML/CSS/overlay/template dan dashboard otomatis mengikuti perubahan. Ini membuat aplikasi tersebut cocok untuk workflow AI-assisted content production, bukan sekadar aplikasi CRUD konten.
