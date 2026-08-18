@@ -40,6 +40,12 @@ export interface ElectronAPI {
     read: () => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>
     write: (settings: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>
   }
+  batch: {
+    parseCsv: (csvPath: string) => Promise<{ success: boolean; data?: { count: number; rows: Record<string, string>[] }; error?: string }>
+    createContent: (accountId: string, rows: Record<string, string>[], templateId?: string) => Promise<{ success: boolean; data?: { ids: string[]; count: number }; error?: string }>
+    enqueueAll: (contentIds: string[], preset?: string) => Promise<{ success: boolean; data?: { queued: number }; error?: string }>
+    exportCsv: (outputPath: string) => Promise<{ success: boolean; data?: string; error?: string }>
+  }
   on: (channel: string, callback: (...args: unknown[]) => void) => () => void
   off: (channel: string, callback: (...args: unknown[]) => void) => void
   send: (channel: string, ...args: unknown[]) => void

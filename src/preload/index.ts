@@ -49,6 +49,13 @@ const electronAPI = {
     write: (settings: Record<string, unknown>) => ipcRenderer.invoke('settings:write', settings)
   },
 
+  batch: {
+    parseCsv: (csvPath: string) => ipcRenderer.invoke('batch:parse-csv', csvPath),
+    createContent: (accountId: string, rows: Record<string, string>[], templateId?: string) => ipcRenderer.invoke('batch:create-content', accountId, rows, templateId),
+    enqueueAll: (contentIds: string[], preset?: string) => ipcRenderer.invoke('batch:enqueue-all', contentIds, preset),
+    exportCsv: (outputPath: string) => ipcRenderer.invoke('batch:export-csv', outputPath)
+  },
+
   on: (channel: string, callback: (...args: unknown[]) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => callback(...args)
     ipcRenderer.on(channel, handler)

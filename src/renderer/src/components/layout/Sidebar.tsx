@@ -8,7 +8,9 @@ import {
   Settings,
   Clapperboard,
   CalendarDays,
-  Globe
+  Globe,
+  ListTodo,
+  ScrollText
 } from 'lucide-react'
 
 const navItems = [
@@ -20,10 +22,12 @@ const navItems = [
   { to: '/assets', icon: FolderOpen, label: 'Assets' },
   { to: '/resources', icon: Globe, label: 'Resources' },
   { to: '/queue', icon: Clapperboard, label: 'Render Queue' },
+  { to: '/batch', icon: ListTodo, label: 'Batch Render' },
   { divider: 'DISTRIBUTION' },
   { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
   { to: '/accounts', icon: Users, label: 'Accounts' },
   { divider: 'SYSTEM' },
+  { to: '/logs', icon: ScrollText, label: 'Logs' },
   { to: '/settings', icon: Settings, label: 'Settings' }
 ]
 

@@ -7,6 +7,7 @@ import { registerSafeIpc } from './ipc/safe-handler'
 import { initRenderIpc } from './ipc/render'
 import { initResourceIpc } from './ipc/resource'
 import { initBackupIpc } from './ipc/backup'
+import { initBatchIpc } from './ipc/batch'
 import { initWatcherService } from './watchers'
 
 let mainWindow: BrowserWindow | null = null
@@ -62,6 +63,7 @@ function createWindow(): void {
     initRenderIpc(mainWindow)
     initResourceIpc()
     initBackupIpc()
+    initBatchIpc()
     initWatcherService(mainWindow)
 
     logInfo('Application started')

@@ -13,6 +13,7 @@ export function useErrorToast(): {
   toasts: Toast[]
   dismiss: (id: number) => void
   showSuccess: (msg: string) => void
+  showError: (msg: string) => void
   showInfo: (msg: string) => void
 } {
   const [toasts, setToasts] = useState<Toast[]>([])
@@ -43,5 +44,11 @@ export function useErrorToast(): {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000)
   }, [])
 
-  return { toasts, dismiss, showSuccess, showInfo }
+  const showError = useCallback((msg: string) => {
+    const id = ++toastId
+    setToasts(prev => [...prev, { id, message: msg, type: 'error' }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000)
+  }, [])
+
+  return { toasts, dismiss, showSuccess, showError, showInfo }
 }
