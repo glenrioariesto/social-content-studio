@@ -4,6 +4,9 @@ import { initMainErrorHandlers, logError, logInfo } from './errors'
 import { createAppError } from '../../packages/shared/src/errors'
 import { initFileSystemIpc } from './ipc/filesystem'
 import { registerSafeIpc } from './ipc/safe-handler'
+import { initRenderIpc } from './ipc/render'
+import { initResourceIpc } from './ipc/resource'
+import { initBackupIpc } from './ipc/backup'
 import { initWatcherService } from './watchers'
 
 let mainWindow: BrowserWindow | null = null
@@ -56,6 +59,9 @@ function createWindow(): void {
 
     initFileSystemIpc(mainWindow)
     registerSafeIpc(mainWindow)
+    initRenderIpc(mainWindow)
+    initResourceIpc()
+    initBackupIpc()
     initWatcherService(mainWindow)
 
     logInfo('Application started')

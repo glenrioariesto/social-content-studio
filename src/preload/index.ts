@@ -30,18 +30,33 @@ const electronAPI = {
     getAssets: (type?: string) => ipcRenderer.invoke('workspace:get-assets', type)
   },
 
+  render: {
+    start: (data: Record<string, unknown>) => ipcRenderer.invoke('render:start', data),
+    cancel: (jobId: string) => ipcRenderer.invoke('render:cancel', jobId),
+    jobs: () => ipcRenderer.invoke('render:jobs'),
+    thumbnail: (videoPath: string, outputPath: string) => ipcRenderer.invoke('render:thumbnail', videoPath, outputPath),
+    setConcurrency: (n: number) => ipcRenderer.invoke('render:set-concurrency', n)
+  },
+
+  backup: {
+    export: (outputPath?: string) => ipcRenderer.invoke('backup:export', outputPath),
+    import: (zipPath: string) => ipcRenderer.invoke('backup:import', zipPath),
+    info: () => ipcRenderer.invoke('backup:info')
+  },
+
+  settings: {
+    read: () => ipcRenderer.invoke('settings:read'),
+    write: (settings: Record<string, unknown>) => ipcRenderer.invoke('settings:write', settings)
+  },
+
   on: (channel: string, callback: (...args: unknown[]) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => callback(...args)
     ipcRenderer.on(channel, handler)
-    return () => {
-      ipcRenderer.removeListener(channel, handler)
-    }
+    return () => { ipcRenderer.removeListener(channel, handler) }
   },
-
   off: (channel: string, callback: (...args: unknown[]) => void) => {
     ipcRenderer.removeListener(channel, callback)
   },
-
   send: (channel: string, ...args: unknown[]) => {
     ipcRenderer.send(channel, ...args)
   }

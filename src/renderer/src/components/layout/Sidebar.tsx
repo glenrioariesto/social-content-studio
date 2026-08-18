@@ -7,7 +7,8 @@ import {
   Users,
   Settings,
   Clapperboard,
-  CalendarDays
+  CalendarDays,
+  Globe
 } from 'lucide-react'
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { divider: 'PRODUCTION' },
   { to: '/templates', icon: Layers, label: 'Templates' },
   { to: '/assets', icon: FolderOpen, label: 'Assets' },
+  { to: '/resources', icon: Globe, label: 'Resources' },
   { to: '/queue', icon: Clapperboard, label: 'Render Queue' },
   { divider: 'DISTRIBUTION' },
   { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
