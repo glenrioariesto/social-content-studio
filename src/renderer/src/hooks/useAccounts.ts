@@ -11,12 +11,16 @@ function validEntries<T>(entries: LoadedEntry<T>[] | undefined): T[] {
 export function useAccounts() {
   const { accounts, setAccounts } = useAppStore()
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const loadAccounts = useCallback(async () => {
     setLoading(true)
+    setError(null)
     const result = await window.electron.workspace.getAccounts()
     if (result.success && result.data) {
       setAccounts(validEntries<Account>(result.data as LoadedEntry<Account>[]))
+    } else {
+      setError(result.error ?? 'Failed to load accounts')
     }
     setLoading(false)
   }, [setAccounts])
@@ -25,5 +29,5 @@ export function useAccounts() {
     loadAccounts()
   }, [loadAccounts])
 
-  return { accounts, loading, reload: loadAccounts }
+  return { accounts, loading, error, reload: loadAccounts }
 }

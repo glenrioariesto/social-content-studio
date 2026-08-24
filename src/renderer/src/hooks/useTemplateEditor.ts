@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
+import { applyTemplateVariables } from '@shared/template-vars'
+import { useAppStore } from '@/stores/app-store'
 
 interface FileContent {
   html: string
@@ -8,6 +10,7 @@ interface FileContent {
 
 export function useTemplateEditor(templateId: string | null) {
   const [files, setFiles] = useState<FileContent>({ html: '', css: '', json: '' })
+  const { accounts } = useAppStore()
   const [activeFile, setActiveFile] = useState<'html' | 'css' | 'json'>('html')
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(true)
@@ -56,8 +59,16 @@ export function useTemplateEditor(templateId: string | null) {
     } else {
       html = `${cssInjection}${html}`
     }
-    return html
-  }, [files])
+    // FR-4: substitute account branding variables in the live preview.
+    let boundAccount
+    try {
+      const tplAccountId = JSON.parse(files.json || '{}')?.accountId
+      boundAccount = tplAccountId ? accounts.find(a => a.id === tplAccountId) : undefined
+    } catch {
+      boundAccount = undefined
+    }
+    return applyTemplateVariables(html, boundAccount ? { account: boundAccount } : {})
+  }, [files, accounts])
 
   return { files, activeFile, setActiveFile, updateFile, save, saved, loading, getPreviewHtml, reload: loadFiles }
 }

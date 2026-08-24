@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTemplates } from '@/hooks/useTemplates'
+import { useAccounts } from '@/hooks/useAccounts'
 import { TemplateEditor } from '@/components/TemplateEditor'
 import { Plus, Trash2, Layers } from 'lucide-react'
 import type { TemplateDefinition } from '@shared/template'
@@ -13,6 +14,7 @@ const TEMPLATE_TYPES = [
 
 export function TemplatesPage() {
   const { templates, loading, createTemplate, deleteTemplate } = useTemplates()
+  const { accounts } = useAccounts()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [newName, setNewName] = useState('')
@@ -88,12 +90,15 @@ export function TemplatesPage() {
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none"
               >
                 <option value="">None</option>
-                <option value="glen-rio-aristo">Glen Rio Aristo</option>
-                <option value="jacksonlab">JacksonLab</option>
-                <option value="highproduct">HighProduct</option>
+                {accounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
               </select>
             </div>
           </div>
+          <p className="text-[11px] text-zinc-500">
+            Available variables: <code className="text-zinc-400">{'{{account.name}}'}</code>, <code className="text-zinc-400">{'{{account.description}}'}</code>, <code className="text-zinc-400">{'{{account.logo}}'}</code> — replaced with the bound account's branding during composition.
+          </p>
           <div className="flex gap-2">
             <button onClick={handleCreate} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">
               Create
