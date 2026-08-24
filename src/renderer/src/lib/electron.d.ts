@@ -15,13 +15,13 @@ export interface ElectronAPI {
     stat: (path: string) => Promise<{ success: boolean; data?: { isFile: boolean; isDirectory: boolean; size: number; mtime: string; birthtime: string }; error?: string }>
   }
   workspace: {
-    getAccounts: () => Promise<{ success: boolean; data?: unknown[]; error?: string }>
-    getContents: (filters?: Record<string, string>) => Promise<{ success: boolean; data?: unknown[]; error?: string }>
-    getContent: (id: string) => Promise<{ success: boolean; data?: unknown; error?: string }>
-    createContent: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: unknown; error?: string }>
-    updateContent: (id: string, data: Record<string, unknown>) => Promise<{ success: boolean; data?: unknown; error?: string }>
+    getAccounts: () => Promise<{ success: boolean; data?: import('@shared/loaded-entry').LoadedEntry<import('@shared/index').Account>[]; error?: string }>
+    getContents: (filters?: Record<string, string>) => Promise<{ success: boolean; data?: import('@shared/loaded-entry').LoadedEntry<import('@shared/index').Content>[]; error?: string }>
+    getContent: (id: string) => Promise<{ success: boolean; data?: import('@shared/loaded-entry').LoadedEntry<import('@shared/index').Content>; error?: string }>
+    createContent: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: import('@shared/index').Content; error?: string }>
+    updateContent: (id: string, data: Record<string, unknown>) => Promise<{ success: boolean; data?: import('@shared/index').Content; error?: string }>
     deleteContent: (id: string) => Promise<{ success: boolean; error?: string }>
-    getTemplates: () => Promise<{ success: boolean; data?: unknown[]; error?: string }>
+    getTemplates: () => Promise<{ success: boolean; data?: import('@shared/loaded-entry').LoadedEntry<import('@shared/template').TemplateDefinition>[]; error?: string }>
     getAssets: (type?: string) => Promise<{ success: boolean; data?: Record<string, string[]>; error?: string }>
   }
   render: {
@@ -38,7 +38,8 @@ export interface ElectronAPI {
   }
   settings: {
     read: () => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>
-    write: (settings: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>
+    write: (settings: Record<string, unknown>) => Promise<{ success: boolean; requiresRestart?: boolean; error?: string }>
+    validateFfmpeg: (ffmpegPath: string) => Promise<{ success: boolean; data?: { found: boolean; executable: boolean }; error?: string }>
   }
   batch: {
     parseCsv: (csvPath: string) => Promise<{ success: boolean; data?: { count: number; rows: Record<string, string>[] }; error?: string }>

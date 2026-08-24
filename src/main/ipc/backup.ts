@@ -55,7 +55,32 @@ export function initBackupIpc(): void {
   }, 'FS_READ_ERROR')
 
   safeIpcMain('settings:write', async (_event, settings: Record<string, unknown>) => {
+    // REQ-004: validate the configured workspace folder exists and is a directory
+    // before persisting. The new root is only used after an app restart (the
+    // caller's UI states this requirement). Saving an invalid/missing folder is
+    // refused so we never persist a broken root.
+    if (typeof settings.workspacePath === 'string' && settings.workspacePath.length > 0) {
+      try {
+        const s = await stat(settings.workspacePath)
+        if (!s.isDirectory()) {
+          return { success: false, error: 'workspacePath is not a directory', errorCode: 'FS_NOT_FOUND' }
+        }
+      } catch {
+        return { success: false, error: 'workspacePath does not exist', errorCode: 'FS_NOT_FOUND' }
+      }
+    }
     await writeFile(join(ws, 'config', 'settings.json'), JSON.stringify(settings, null, 2), 'utf-8')
-    return { success: true }
+    return { success: true, requiresRestart: true }
   }, 'FS_WRITE_ERROR')
+
+  safeIpcMain('settings:validate-ffmpeg', async (_event, ffmpegPath: string) => {
+    const { existsSync, statSync } = await import('fs')
+    try {
+      if (!existsSync(ffmpegPath)) return { success: true, data: { found: false, executable: false } }
+      const s = statSync(ffmpegPath)
+      return { success: true, data: { found: true, executable: !s.isDirectory() } }
+    } catch {
+      return { success: true, data: { found: false, executable: false } }
+    }
+  }, 'FS_READ_ERROR')
 }
