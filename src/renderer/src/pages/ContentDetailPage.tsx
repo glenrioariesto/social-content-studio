@@ -12,7 +12,7 @@ export function ContentDetailPage() {
   const [content, setContent] = useState<Content | null>(null)
   const [loading, setLoading] = useState(true)
   const { accounts } = useAccounts()
-  const { showSuccess } = useErrorToast()
+  const { showSuccess, showError } = useErrorToast()
 
   const account = content ? accounts.find(a => a.id === content.accountId) : null
 
@@ -29,10 +29,15 @@ export function ContentDetailPage() {
 
   const handleDelete = async () => {
     if (!id) return
+    // AC-013: destructive action requires explicit confirmation before proceeding.
+    const confirmed = window.confirm(`Delete "${content?.title || 'this content'}"? This cannot be undone.`)
+    if (!confirmed) return
     const result = await window.electron.workspace.deleteContent(id)
     if (result.success) {
       showSuccess('Content deleted')
       navigate('/content')
+    } else {
+      showError(result.error ?? 'Failed to delete content')
     }
   }
 

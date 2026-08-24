@@ -23,7 +23,7 @@ export function ContentPage() {
   const [statusFilter, setStatusFilter] = useState<ContentStatus | 'all'>('all')
   const [showWizard, setShowWizard] = useState(false)
   const { activeAccountId } = useAppStore()
-  const { contents, loading, quarantined } = useContents(
+  const { contents, loading, error, quarantined } = useContents(
     activeAccountId ? { accountId: activeAccountId } : undefined
   )
   const { accounts } = useAccounts()
@@ -75,6 +75,18 @@ export function ContentPage() {
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <p className="text-sm text-zinc-500">Loading content...</p>
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
+          <p className="mt-2 text-sm text-red-300">Failed to load content</p>
+          <p className="text-xs text-zinc-500">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-3 text-sm text-indigo-400 hover:text-indigo-300"
+          >
+            Retry
+          </button>
         </div>
       ) : (
         <>

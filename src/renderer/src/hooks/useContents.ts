@@ -19,10 +19,12 @@ export interface QuarantinedEntry {
 export function useContents(filters?: { accountId?: string; status?: string }) {
   const { contents, setContents } = useAppStore()
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [quarantined, setQuarantined] = useState<QuarantinedEntry[]>([])
 
   const loadContents = useCallback(async () => {
     setLoading(true)
+    setError(null)
     const result = await window.electron.workspace.getContents(filters)
     if (result.success && result.data) {
       const entries = result.data as LoadedEntry<Content>[]
@@ -33,6 +35,8 @@ export function useContents(filters?: { accountId?: string; status?: string }) {
           .filter((e): e is Extract<LoadedEntry<Content>, { kind: 'invalid' }> => e.kind === 'invalid')
           .map(e => ({ id: e.id, file: e.file, issues: e.issues }))
       )
+    } else {
+      setError(result.error ?? 'Failed to load content')
     }
     setLoading(false)
   }, [setContents, filters?.accountId, filters?.status])
@@ -41,5 +45,5 @@ export function useContents(filters?: { accountId?: string; status?: string }) {
     loadContents()
   }, [loadContents])
 
-  return { contents, loading, quarantined, reload: loadContents }
+  return { contents, loading, error, quarantined, reload: loadContents }
 }
