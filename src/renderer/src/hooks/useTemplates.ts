@@ -1,5 +1,11 @@
 import { useState, useCallback, useEffect } from 'react'
 import type { TemplateDefinition } from '@shared/template'
+import type { LoadedEntry } from '@shared/loaded-entry'
+
+function validEntries<T>(entries: LoadedEntry<T>[] | undefined): T[] {
+  if (!entries) return []
+  return entries.filter((e): e is Extract<LoadedEntry<T>, { kind: 'valid' }> => e.kind === 'valid').map(e => e.data)
+}
 
 export function useTemplates() {
   const [templates, setTemplates] = useState<TemplateDefinition[]>([])
@@ -9,7 +15,7 @@ export function useTemplates() {
     setLoading(true)
     const result = await window.electron.workspace.getTemplates()
     if (result.success && result.data) {
-      setTemplates(result.data as TemplateDefinition[])
+      setTemplates(validEntries<TemplateDefinition>(result.data as LoadedEntry<TemplateDefinition>[]))
     }
     setLoading(false)
   }, [])

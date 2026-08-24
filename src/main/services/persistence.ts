@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import { randomUUID } from 'crypto'
 
 /**
@@ -10,8 +10,8 @@ import { randomUUID } from 'crypto'
  */
 export async function atomicWriteJson(file: string, value: unknown): Promise<void> {
   const payload = JSON.stringify(value, null, 2)
-  const dir = file.substring(0, file.lastIndexOf('/') >= 0 ? file.lastIndexOf('/') : file.lastIndexOf('\\'))
-  const tmp = join(dir || tmpdir(), `.${randomUUID()}.tmp`)
+  const dir = dirname(file)
+  const tmp = join(dir, `.${randomUUID()}.tmp`)
   await fs.writeFile(tmp, payload, 'utf-8')
   await fs.rename(tmp, file)
 }

@@ -52,13 +52,19 @@ export function assertInsideWorkspace(
     )
   }
 
-  // Case-insensitive containment check: candidate must live under root, and
-  // must not be the root itself (deleting the root is refused).
+  // Case-insensitive containment check: candidate must live strictly under
+  // root. The root itself, or any path not under it, is refused (deleting the
+  // root, or operating on the boundary, is not allowed).
+  if (caseInsensitiveEqual(absCandidate, absRoot)) {
+    throw createAppError(
+      'FS_PERMISSION_DENIED',
+      'Operation on the workspace root itself is not allowed',
+      'ipc',
+      { channel, requested: candidate }
+    )
+  }
   const rootPrefix = absRoot.endsWith(sep) ? absRoot : absRoot + sep
-  if (
-    !caseInsensitiveEqual(absCandidate, absRoot) &&
-    !absCandidate.toLowerCase().startsWith(rootPrefix.toLowerCase())
-  ) {
+  if (!absCandidate.toLowerCase().startsWith(rootPrefix.toLowerCase())) {
     throw createAppError(
       'FS_PERMISSION_DENIED',
       `Path is outside the workspace root: ${candidate}`,

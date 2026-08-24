@@ -20,8 +20,8 @@ export function ContentDetailPage() {
     if (!id) return
     setLoading(true)
     window.electron.workspace.getContent(id).then(result => {
-      if (result.success && result.data) {
-        setContent(result.data as Content)
+      if (result.success && result.data && result.data.kind === 'valid') {
+        setContent(result.data.data)
       }
       setLoading(false)
     })

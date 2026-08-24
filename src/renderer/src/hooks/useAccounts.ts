@@ -1,18 +1,22 @@
 import { useEffect, useCallback, useState } from 'react'
 import { useAppStore } from '@/stores/app-store'
-import { useErrorToast } from '@/hooks/useErrorToast'
 import type { Account } from '@shared/index'
+import type { LoadedEntry } from '@shared/loaded-entry'
+
+function validEntries<T>(entries: LoadedEntry<T>[] | undefined): T[] {
+  if (!entries) return []
+  return entries.filter((e): e is Extract<LoadedEntry<T>, { kind: 'valid' }> => e.kind === 'valid').map(e => e.data)
+}
 
 export function useAccounts() {
   const { accounts, setAccounts } = useAppStore()
   const [loading, setLoading] = useState(false)
-  const { showSuccess } = useErrorToast()
 
   const loadAccounts = useCallback(async () => {
     setLoading(true)
     const result = await window.electron.workspace.getAccounts()
     if (result.success && result.data) {
-      setAccounts(result.data as Account[])
+      setAccounts(validEntries<Account>(result.data as LoadedEntry<Account>[]))
     }
     setLoading(false)
   }, [setAccounts])
