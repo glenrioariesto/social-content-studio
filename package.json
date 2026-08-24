@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "adm-zip": "^0.6.0",
     "chokidar": "^4.0.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",

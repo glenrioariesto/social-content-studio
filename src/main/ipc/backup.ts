@@ -1,18 +1,30 @@
 import { safeIpcMain } from './safe-handler'
 import { join } from 'path'
 import { readFile, readdir, writeFile, stat } from 'fs/promises'
+import { existsSync, statSync } from 'fs'
+import { spawn } from 'child_process'
+import AdmZip from 'adm-zip'
 import { logInfo, logError } from '../errors'
 import { createAppError } from '../../../packages/shared/src/errors'
+import { getWorkspaceRoot } from '../services/workspace-root'
+import { assertInsideWorkspace } from '../services/path-guard'
+import { atomicWriteJson } from '../services/persistence'
 
 export function initBackupIpc(): void {
-  const ws = join(process.cwd(), 'workspace')
+  const ws = () => getWorkspaceRoot()
 
   safeIpcMain('backup:export', async (_event, outputPath?: string) => {
-    const { execSync } = await import('child_process')
-    const outPath = outputPath || join(process.cwd(), `social-content-backup-${new Date().toISOString().split('T')[0]}.zip`)
+    const root = ws()
+    const outPath = outputPath
+      ? assertInsideWorkspace(root, outputPath, 'backup:export').absolute
+      : join(root, `social-content-backup-${new Date().toISOString().split('T')[0]}.zip`)
 
     try {
-      execSync(`powershell -Command "Compress-Archive -Path '${ws}\\*' -DestinationPath '${outPath}' -Force"`, { stdio: 'pipe' })
+      const zip = new AdmZip()
+      // adm-zip reads the directory from disk directly — no shell is spawned,
+      // so renderer-supplied outputPath can no longer inject commands (SEC-01).
+      zip.addLocalFolder(root)
+      zip.writeZip(outPath)
       logInfo(`Backup exported: ${outPath}`)
       return { success: true, data: outPath }
     } catch (err) {
@@ -21,10 +33,13 @@ export function initBackupIpc(): void {
   }, 'FS_WRITE_ERROR')
 
   safeIpcMain('backup:import', async (_event, zipPath: string) => {
-    const { execSync } = await import('child_process')
+    const root = ws()
+    // Confine the caller-supplied archive path before touching it (SEC-01/SEC-02).
+    const confined = assertInsideWorkspace(root, zipPath, 'backup:import').absolute
     try {
-      execSync(`powershell -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${ws}' -Force"`, { stdio: 'pipe' })
-      logInfo(`Backup imported: ${zipPath}`)
+      const zip = new AdmZip(confined)
+      zip.extractAllTo(root, /*overwrite*/ true)
+      logInfo(`Backup imported: ${confined}`)
       return { success: true }
     } catch (err) {
       return { success: false, error: (err as Error).message }
@@ -32,11 +47,12 @@ export function initBackupIpc(): void {
   }, 'FS_WRITE_ERROR')
 
   safeIpcMain('backup:info', async () => {
+    const root = ws()
     const dirs = ['accounts', 'contents', 'templates', 'resources', 'assets']
     const info: Record<string, number> = {}
     for (const dir of dirs) {
       try {
-        const entries = await readdir(join(ws, dir), { withFileTypes: true })
+        const entries = await readdir(join(root, dir), { withFileTypes: true })
         info[dir] = entries.length
       } catch {
         info[dir] = 0
@@ -46,8 +62,9 @@ export function initBackupIpc(): void {
   }, 'FS_READ_ERROR')
 
   safeIpcMain('settings:read', async () => {
+    const root = ws()
     try {
-      const raw = await readFile(join(ws, 'config', 'settings.json'), 'utf-8')
+      const raw = await readFile(join(root, 'config', 'settings.json'), 'utf-8')
       return { success: true, data: JSON.parse(raw) }
     } catch {
       return { success: true, data: { defaultPreset: 'instagram-reels', maxConcurrentRender: 1 } }
@@ -56,31 +73,32 @@ export function initBackupIpc(): void {
 
   safeIpcMain('settings:write', async (_event, settings: Record<string, unknown>) => {
     // REQ-004: validate the configured workspace folder exists and is a directory
-    // before persisting. The new root is only used after an app restart (the
-    // caller's UI states this requirement). Saving an invalid/missing folder is
-    // refused so we never persist a broken root.
+    // before persisting. The new root only takes effect after an app restart.
     if (typeof settings.workspacePath === 'string' && settings.workspacePath.length > 0) {
       try {
-        const s = await stat(settings.workspacePath)
-        if (!s.isDirectory()) {
-          return { success: false, error: 'workspacePath is not a directory', errorCode: 'FS_NOT_FOUND' }
+        if (!existsSync(settings.workspacePath) || !statSync(settings.workspacePath).isDirectory()) {
+          return { success: false, error: 'workspacePath does not exist or is not a directory', errorCode: 'FS_NOT_FOUND' }
         }
       } catch {
         return { success: false, error: 'workspacePath does not exist', errorCode: 'FS_NOT_FOUND' }
       }
     }
-    await writeFile(join(ws, 'config', 'settings.json'), JSON.stringify(settings, null, 2), 'utf-8')
+    const root = ws()
+    await atomicWriteJson(join(root, 'config', 'settings.json'), settings) // CON-001: atomic
     return { success: true, requiresRestart: true }
   }, 'FS_WRITE_ERROR')
 
   safeIpcMain('settings:validate-ffmpeg', async (_event, ffmpegPath: string) => {
-    const { existsSync, statSync } = await import('fs')
-    try {
-      if (!existsSync(ffmpegPath)) return { success: true, data: { found: false, executable: false } }
-      const s = statSync(ffmpegPath)
-      return { success: true, data: { found: true, executable: !s.isDirectory() } }
-    } catch {
-      return { success: true, data: { found: false, executable: false } }
-    }
+    // NIT-08: report honestly. `isFile` (not `executable`) — a non-directory
+    // file may still be the wrong binary. Optional real check below.
+    if (!existsSync(ffmpegPath)) return { success: true, data: { found: false, isFile: false } }
+    if (!statSync(ffmpegPath).isFile()) return { success: true, data: { found: false, isFile: false } }
+
+    const isRealFfmpeg = await new Promise<boolean>(resolve => {
+      const proc = spawn(ffmpegPath, ['-version'])
+      proc.on('error', () => resolve(false))
+      proc.on('close', code => resolve(code === 0))
+    })
+    return { success: true, data: { found: true, isFile: isRealFfmpeg } }
   }, 'FS_READ_ERROR')
 }

@@ -39,7 +39,7 @@ export interface ElectronAPI {
   settings: {
     read: () => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>
     write: (settings: Record<string, unknown>) => Promise<{ success: boolean; requiresRestart?: boolean; error?: string }>
-    validateFfmpeg: (ffmpegPath: string) => Promise<{ success: boolean; data?: { found: boolean; executable: boolean }; error?: string }>
+    validateFfmpeg: (ffmpegPath: string) => Promise<{ success: boolean; data?: { found: boolean; isFile: boolean }; error?: string }>
   }
   batch: {
     parseCsv: (csvPath: string) => Promise<{ success: boolean; data?: { count: number; rows: Record<string, string>[] }; error?: string }>

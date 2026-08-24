@@ -23,7 +23,7 @@ export function SettingsPage() {
   const [exporting, setExporting] = useState(false)
   const [workspaceDir, setWorkspaceDir] = useState('')
   const [ffmpegPath, setFfmpegPath] = useState('')
-  const [ffmpegStatus, setFfmpegStatus] = useState<{ found: boolean; executable: boolean } | null>(null)
+  const [ffmpegStatus, setFfmpegStatus] = useState<{ found: boolean; isFile: boolean } | null>(null)
   const [restartNotice, setRestartNotice] = useState(false)
   const { showSuccess, showInfo } = useErrorToast()
 
@@ -142,10 +142,10 @@ export function SettingsPage() {
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 outline-none focus:border-indigo-500"
               />
               {ffmpegStatus && (
-                <div className={`flex items-center gap-2 text-sm ${ffmpegStatus.found && ffmpegStatus.executable ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {ffmpegStatus.found && ffmpegStatus.executable
-                    ? <><CheckCircle2 className="h-4 w-4" /> FFmpeg found and executable</>
-                    : <><XCircle className="h-4 w-4" /> FFmpeg not found or not executable</>}
+                <div className={`flex items-center gap-2 text-sm ${ffmpegStatus.found && ffmpegStatus.isFile ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {ffmpegStatus.found && ffmpegStatus.isFile
+                    ? <><CheckCircle2 className="h-4 w-4" /> FFmpeg found and valid</>
+                    : <><XCircle className="h-4 w-4" /> FFmpeg not found or not valid</>}
                 </div>
               )}
             </div>

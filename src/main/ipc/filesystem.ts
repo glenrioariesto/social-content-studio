@@ -1,36 +1,25 @@
 import { type BrowserWindow } from 'electron'
-import { readFile, writeFile, readdir, mkdir, rm, stat, access } from 'fs/promises'
-import { readFileSync } from 'fs'
-import { join } from 'path'
+import { readFile, writeFile, readdir, mkdir, rm, stat, access, realpath } from 'fs/promises'
+import { join, sep } from 'path'
 import { safeIpcMain } from './safe-handler'
 import { logError, logInfo } from '../errors'
 import { createAppError, type ErrorCode } from '../../../packages/shared/src/errors'
 import { assertInsideWorkspace } from '../services/path-guard'
+import { getWorkspaceRoot } from '../services/workspace-root'
 import { generateUniqueContentId } from '../services/id'
 import { atomicWriteJson, mergeKnownFields } from '../services/persistence'
+import { assertLegalTransition } from '../services/lifecycle'
 import { validateContent, validateTemplate, validateAccount, type ValidationIssue } from '../../../packages/shared/src/validators'
 import type { Content, Template, Account } from '../../../packages/shared/src/index'
 import type { LoadedEntry } from '../../../packages/shared/src/loaded-entry'
 
-const SETTINGS_PATH = join(process.cwd(), 'workspace', 'config', 'settings.json')
-
-/**
- * Single source of truth for the Workspace Root (Spec REQ-004 / CON-002).
- * Persisted `workspacePath` in config/settings.json wins; falls back to the
- * legacy cwd/workspace when unset. Missing/invalid settings is tolerated here
- * (the startup sweep routes to guided setup) — this just resolves the path.
- */
-function getWorkspaceRoot(): string {
-  try {
-    const raw = require('fs').readFileSync(SETTINGS_PATH, 'utf-8')
-    const parsed = JSON.parse(raw) as { workspacePath?: string }
-    if (parsed && typeof parsed.workspacePath === 'string' && parsed.workspacePath.length > 0) {
-      return parsed.workspacePath
-    }
-  } catch {
-    // no settings yet — fall through to default
+/** A content id is server-generated (`content-<ts>-<hex>`); reject anything that
+ *  could carry a separator or traversal segment (SEC-02). */
+const SAFE_ID = /^[A-Za-z0-9._-]+$/
+function assertSafeId(id: string, channel: string): void {
+  if (!SAFE_ID.test(id) || id.includes('..')) {
+    throw createAppError('FS_PERMISSION_DENIED', `Invalid id: ${id}`, 'ipc', { channel, requested: id })
   }
-  return join(process.cwd(), 'workspace')
 }
 
 function fsError(code: ErrorCode, err: unknown, context?: string) {
@@ -38,19 +27,22 @@ function fsError(code: ErrorCode, err: unknown, context?: string) {
 }
 
 /** Reads + validates one document; returns a LoadedEntry (valid or invalid). */
-function loadEntry<T>(
+async function loadEntry<T>(
   jsonPath: string,
   dirName: string,
   validate: (raw: unknown) => { ok: true; value: T } | { ok: false; issues: ValidationIssue[] }
-): LoadedEntry<T> {
+): Promise<LoadedEntry<T>> {
   try {
-    const raw = JSON.parse(readFileSync(jsonPath, 'utf-8'))
+    const raw = JSON.parse(await readFile(jsonPath, 'utf-8'))
     const result = validate(raw)
     if (result.ok) {
       return { kind: 'valid', id: dirName, data: result.value }
     }
+    // SEC-003: log the validation failure (channel, path, issues).
+    void logError(createAppError('FS_READ_ERROR', `Invalid document: ${jsonPath}`, 'ipc', { path: jsonPath, issues: result.issues }))
     return { kind: 'invalid', id: dirName, file: jsonPath, issues: result.issues }
   } catch (err) {
+    void logError(createAppError('FS_READ_ERROR', `Failed to read/parse ${jsonPath}: ${(err as Error).message}`, 'ipc', { path: jsonPath }))
     return {
       kind: 'invalid',
       id: dirName,
@@ -60,29 +52,34 @@ function loadEntry<T>(
   }
 }
 
-// Synchronous read used by loadEntry (documents are small JSON on local disk).
-
-function logRefusal(channel: string, requested: string): void {
-  const err = createAppError('FS_PERMISSION_DENIED', `Refused out-of-workspace access: ${requested}`, 'ipc', { channel, requested })
-  void logError(err)
-}
-
-const BACKUP_CHANNELS = new Set(['backup:export', 'backup:import'])
-
-function guardOrThrow(channel: string, root: string, candidate: string): string {
-  // Backup export/import are the sole whitelist exception (ADR-0001): they
-  // originate from an explicit user dialog and are logged elsewhere.
-  if (BACKUP_CHANNELS.has(channel)) return candidate
-  const confined = assertInsideWorkspace(root, candidate, channel)
-  return confined.absolute
+/**
+ * Guard wrapper: confines a candidate path and logs the refusal (SEC-003) on
+ * failure. The backup channels no longer bypass this (the BACKUP_CHANNELS
+ * whitelist was removed — SEC-01/PRN-001).
+ */
+async function guardOrThrow(channel: string, root: string, candidate: string): Promise<string> {
+  try {
+    const confined = assertInsideWorkspace(root, candidate, channel)
+    // SEC-03: re-check the real (symlink-resolved) path still stays inside root.
+    const real = await realpath(confined.absolute)
+    const absRoot = await realpath(root)
+    if (!real.toLowerCase().startsWith(absRoot.toLowerCase() + sep.toLowerCase()) &&
+        real.toLowerCase() !== absRoot.toLowerCase()) {
+      throw createAppError('FS_PERMISSION_DENIED', `Symlink escapes workspace root: ${candidate}`, 'ipc', { channel, requested: candidate })
+    }
+    return real
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'FS_PERMISSION_DENIED') {
+      void logError(err as unknown as import('../../../packages/shared/src/errors').AppError)
+    }
+    throw err
+  }
 }
 
 /**
  * Startup Sweep (Spec AC-012): any content left in `rendering` when the app
- * previously crashed/force-closed is marked `failed` with reason "interrupted
- * by shutdown". This uses the legal `rendering -> failed` transition and leaves
- * the item retryable through the existing `failed -> rendering` flow. Runs once
- * at IPC initialization.
+ * previously crashed/force-closed is marked `failed` ("interrupted by shutdown").
+ * Uses the legal `rendering -> failed` transition (REQ-006). Runs once at init.
  */
 async function startupSweep(root: string): Promise<void> {
   try {
@@ -92,14 +89,11 @@ async function startupSweep(root: string): Promise<void> {
       if (!e.isDirectory()) continue
       const jsonPath = join(contentsDir, e.name, 'content.json')
       try {
-        const raw = readFileSync(jsonPath, 'utf-8')
+        const raw = await readFile(jsonPath, 'utf-8')
         const parsed = JSON.parse(raw) as Content
         if (parsed && parsed.status === 'rendering') {
-          const updated: Content = {
-            ...parsed,
-            status: 'failed',
-            updatedAt: new Date().toISOString()
-          }
+          assertLegalTransition('rendering', 'failed') // REQ-006: legal edge
+          const updated: Content = { ...parsed, status: 'failed', updatedAt: new Date().toISOString() }
           await atomicWriteJson(jsonPath, updated)
           logInfo(`Startup sweep: marked interrupted render failed for ${parsed.id}`)
         }
@@ -119,19 +113,19 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
   void startupSweep(ws())
 
   safeIpcMain('fs:read-file', async (_event, filePath: string) => {
-    const p = guardOrThrow('fs:read-file', ws(), filePath)
+    const p = await guardOrThrow('fs:read-file', ws(), filePath)
     const content = await readFile(p, 'utf-8')
     return { success: true, data: content }
   }, 'FS_READ_ERROR')
 
   safeIpcMain('fs:write-file', async (_event, filePath: string, content: string) => {
-    const p = guardOrThrow('fs:write-file', ws(), filePath)
+    const p = await guardOrThrow('fs:write-file', ws(), filePath)
     await writeFile(p, content, 'utf-8')
     return { success: true }
   }, 'FS_WRITE_ERROR')
 
   safeIpcMain('fs:readdir', async (_event, dirPath: string) => {
-    const p = guardOrThrow('fs:readdir', ws(), dirPath)
+    const p = await guardOrThrow('fs:readdir', ws(), dirPath)
     const entries = await readdir(p, { withFileTypes: true })
     return {
       success: true,
@@ -144,21 +138,21 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
   }, 'FS_READ_ERROR')
 
   safeIpcMain('fs:mkdir', async (_event, dirPath: string) => {
-    const p = guardOrThrow('fs:mkdir', ws(), dirPath)
+    const p = await guardOrThrow('fs:mkdir', ws(), dirPath)
     await mkdir(p, { recursive: true })
     return { success: true }
   }, 'FS_WRITE_ERROR')
 
   safeIpcMain('fs:rm', async (_event, targetPath: string) => {
-    const p = guardOrThrow('fs:rm', ws(), targetPath)
+    const p = await guardOrThrow('fs:rm', ws(), targetPath)
     await rm(p, { recursive: true, force: true })
     return { success: true }
   }, 'FS_WRITE_ERROR')
 
   safeIpcMain('fs:exists', async (_event, targetPath: string) => {
     try {
-      guardOrThrow('fs:exists', ws(), targetPath)
-      await access(targetPath)
+      const p = await guardOrThrow('fs:exists', ws(), targetPath)
+      await access(p)
       return { success: true, data: true }
     } catch {
       return { success: true, data: false }
@@ -166,7 +160,7 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
   }, 'FS_READ_ERROR')
 
   safeIpcMain('fs:stat', async (_event, targetPath: string) => {
-    const p = guardOrThrow('fs:stat', ws(), targetPath)
+    const p = await guardOrThrow('fs:stat', ws(), targetPath)
     const s = await stat(p)
     return {
       success: true,
@@ -184,10 +178,10 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
     const root = ws()
     const entries = await readdir(join(root, 'accounts'), { withFileTypes: true })
     const accounts = entries.filter(e => e.isDirectory()).map(e => e.name)
-    const results: LoadedEntry<Account>[] = accounts.map(name => {
+    const results: LoadedEntry<Account>[] = await Promise.all(accounts.map(name => {
       const jsonPath = join(root, 'accounts', name, 'account.json')
       return loadEntry<Account>(jsonPath, name, validateAccount)
-    })
+    }))
     return { success: true, data: results }
   }, 'ACCOUNT_NOT_FOUND')
 
@@ -197,10 +191,10 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
     const entries = await readdir(contentsDir, { withFileTypes: true })
     const dirs = entries.filter(e => e.isDirectory()).map(e => e.name)
 
-    const results: LoadedEntry<Content>[] = dirs.map(dir => {
+    const results: LoadedEntry<Content>[] = await Promise.all(dirs.map(dir => {
       const jsonPath = join(contentsDir, dir, 'content.json')
       return loadEntry<Content>(jsonPath, dir, validateContent)
-    })
+    }))
 
     if (filters) {
       return {
@@ -218,8 +212,9 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
 
   safeIpcMain('workspace:get-content', async (_event, id: string) => {
     const root = ws()
+    assertSafeId(id, 'workspace:get-content') // SEC-02
     const jsonPath = join(root, 'contents', id, 'content.json')
-    const entry = loadEntry<Content>(jsonPath, id, validateContent)
+    const entry = await loadEntry<Content>(jsonPath, id, validateContent)
     return { success: true, data: entry }
   }, 'CONTENT_NOT_FOUND')
 
@@ -247,6 +242,7 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
 
   safeIpcMain('workspace:update-content', async (_event, id: string, data: Record<string, unknown>) => {
     const root = ws()
+    assertSafeId(id, 'workspace:update-content') // SEC-02
     const jsonPath = join(root, 'contents', id, 'content.json')
     const raw = await readFile(jsonPath, 'utf-8')
     const existing = JSON.parse(raw) as Content
@@ -254,6 +250,10 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
       'title', 'description', 'status', 'templateId', 'resourcePath',
       'compositionHtml', 'output', 'caption', 'hashtags', 'scheduledAt'
     ])
+    // REQ-006: all status mutations MUST pass through the transition guard.
+    if (typeof data.status === 'string' && data.status !== existing.status) {
+      assertLegalTransition(existing.status, merged.status)
+    }
     merged.updatedAt = new Date().toISOString()
     await atomicWriteJson(jsonPath, merged)
     return { success: true, data: merged }
@@ -261,8 +261,10 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
 
   safeIpcMain('workspace:delete-content', async (_event, id: string) => {
     const root = ws()
+    assertSafeId(id, 'workspace:delete-content') // SEC-02
     const contentDir = join(root, 'contents', id)
-    await rm(contentDir, { recursive: true, force: true })
+    const confined = await guardOrThrow('workspace:delete-content', root, contentDir) // SEC-02: confined
+    await rm(confined, { recursive: true, force: true })
     logInfo(`Content deleted: ${id}`)
     return { success: true }
   }, 'FS_WRITE_ERROR')
@@ -271,10 +273,10 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
     const root = ws()
     const entries = await readdir(join(root, 'templates'), { withFileTypes: true })
     const dirs = entries.filter(e => e.isDirectory()).map(e => e.name)
-    const results: LoadedEntry<Template>[] = dirs.map(dir => {
+    const results: LoadedEntry<Template>[] = await Promise.all(dirs.map(dir => {
       const jsonPath = join(root, 'templates', dir, 'template.json')
       return loadEntry<Template>(jsonPath, dir, validateTemplate)
-    })
+    }))
     return { success: true, data: results }
   }, 'TEMPLATE_NOT_FOUND')
 
