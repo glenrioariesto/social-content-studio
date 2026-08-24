@@ -30,6 +30,13 @@ const electronAPI = {
     getAssets: (type?: string) => ipcRenderer.invoke('workspace:get-assets', type)
   },
 
+  account: {
+    create: (data: { name: string; description?: string }) => ipcRenderer.invoke('account:create', data),
+    update: (id: string, data: Record<string, unknown>) => ipcRenderer.invoke('account:update', id, data),
+    setLogo: (id: string, sourcePath: string) => ipcRenderer.invoke('account:set-logo', id, sourcePath),
+    getLogoUrl: (id: string) => ipcRenderer.invoke('account:get-logo-url', id)
+  },
+
   render: {
     start: (data: Record<string, unknown>) => ipcRenderer.invoke('render:start', data),
     cancel: (jobId: string) => ipcRenderer.invoke('render:cancel', jobId),

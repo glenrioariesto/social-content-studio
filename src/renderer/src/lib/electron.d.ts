@@ -24,6 +24,12 @@ export interface ElectronAPI {
     getTemplates: () => Promise<{ success: boolean; data?: import('@shared/loaded-entry').LoadedEntry<import('@shared/template').TemplateDefinition>[]; error?: string }>
     getAssets: (type?: string) => Promise<{ success: boolean; data?: Record<string, string[]>; error?: string }>
   }
+  account: {
+    create: (data: { name: string; description?: string }) => Promise<{ success: boolean; data?: import('@shared/index').Account; error?: string; errorCode?: string }>
+    update: (id: string, data: Record<string, unknown>) => Promise<{ success: boolean; data?: import('@shared/index').Account; error?: string; errorCode?: string }>
+    setLogo: (id: string, sourcePath: string) => Promise<{ success: boolean; data?: import('@shared/index').Account; error?: string; errorCode?: string }>
+    getLogoUrl: (id: string) => Promise<{ success: boolean; data?: string | null; error?: string }>
+  }
   render: {
     start: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: unknown; error?: string }>
     cancel: (jobId: string) => Promise<{ success: boolean; error?: string }>

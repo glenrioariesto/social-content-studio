@@ -3,6 +3,7 @@ import { join } from 'path'
 import { initMainErrorHandlers, logError, logInfo } from './errors'
 import { createAppError } from '../../packages/shared/src/errors'
 import { initFileSystemIpc } from './ipc/filesystem'
+import { initAccountsIpc } from './ipc/accounts'
 import { registerSafeIpc } from './ipc/safe-handler'
 import { initRenderIpc } from './ipc/render'
 import { initResourceIpc } from './ipc/resource'
@@ -59,6 +60,7 @@ function createWindow(): void {
     }
 
     initFileSystemIpc(mainWindow)
+    initAccountsIpc()
     registerSafeIpc(mainWindow)
     initRenderIpc(mainWindow)
     initResourceIpc()
