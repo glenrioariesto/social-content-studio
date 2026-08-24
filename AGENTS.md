@@ -7,6 +7,7 @@ Social Content Studio is a local Electron desktop app for managing social-media 
 ## Project Map
 
 - **Project Architecture Map:** Read [/docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) to understand the directory layout and architectural constraints before suggesting code changes.
+- **Stabilization docs:** IPC confinement & data contracts → [docs/reference/ipc-confinement-contracts.md](docs/reference/ipc-confinement-contracts.md); backup & interrupted-render recovery → [docs/how-to/recover-interrupted-render.md](docs/how-to/recover-interrupted-render.md); design rationale → [docs/explanation/why-confinement-and-loadedentry.md](docs/explanation/why-confinement-and-loadedentry.md).
 
 ## Source of truth
 
