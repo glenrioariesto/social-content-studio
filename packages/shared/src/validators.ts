@@ -112,6 +112,9 @@ export function validateAccount(raw: unknown): ValidationResult<Account> {
   if (!isNonEmptyString(raw.name)) {
     issues.push({ field: 'name', message: 'name must be a non-empty string' })
   }
+  if (raw.description !== undefined && !isString(raw.description)) {
+    issues.push({ field: 'description', message: 'description must be a string' })
+  }
   if (raw.workflows !== undefined && !Array.isArray(raw.workflows)) {
     issues.push({ field: 'workflows', message: 'workflows must be an array' })
   }
@@ -120,6 +123,18 @@ export function validateAccount(raw: unknown): ValidationResult<Account> {
   }
   if (raw.branding !== undefined && !isObject(raw.branding)) {
     issues.push({ field: 'branding', message: 'branding must be an object' })
+  }
+  // branding.logo: optional; when present and non-empty it must point inside
+  // the account's assets dir with an allowed image extension. Legacy empty
+  // string is accepted as absent (Audit FINDING-B).
+  const logo = isObject(raw.branding) ? raw.branding.logo : undefined
+  if (logo !== undefined && logo !== '' && !isString(logo)) {
+    issues.push({ field: 'branding.logo', message: 'logo must be a string' })
+  } else if (typeof logo === 'string' && logo !== '') {
+    const LOGO_PATTERN = /^assets\/[A-Za-z0-9._-]+\.(png|jpe?g|webp|svg)$/
+    if (!LOGO_PATTERN.test(logo)) {
+      issues.push({ field: 'branding.logo', message: 'logo must be an assets/ path ending in .png/.jpg/.jpeg/.webp/.svg' })
+    }
   }
   if (issues.length > 0) return { ok: false, issues }
   return { ok: true, value: raw as unknown as Account }

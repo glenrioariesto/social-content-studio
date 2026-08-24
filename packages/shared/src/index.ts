@@ -20,11 +20,12 @@ export type RenderPreset = 'instagram-reels' | 'tiktok' | 'youtube-shorts'
 export interface Account {
   id: string
   name: string
+  description?: string
   workflows: WorkflowType[]
   templates: string[]
   branding: {
-    logo: string
-    watermark: string
+    logo?: string
+    watermark?: string
   }
 }
 
