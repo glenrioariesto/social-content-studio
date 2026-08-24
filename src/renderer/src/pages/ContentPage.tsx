@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { useContents } from '@/hooks/useContents'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useAppStore } from '@/stores/app-store'
 import { ContentCard } from '@/components/ContentCard'
+import { QuarantineCard } from '@/components/QuarantineCard'
 import { ContentCreationWizard } from '@/components/ContentCreationWizard'
 import type { ContentStatus } from '@shared/index'
 
@@ -21,7 +23,7 @@ export function ContentPage() {
   const [statusFilter, setStatusFilter] = useState<ContentStatus | 'all'>('all')
   const [showWizard, setShowWizard] = useState(false)
   const { activeAccountId } = useAppStore()
-  const { contents, loading } = useContents(
+  const { contents, loading, quarantined } = useContents(
     activeAccountId ? { accountId: activeAccountId } : undefined
   )
   const { accounts } = useAccounts()
@@ -74,22 +76,42 @@ export function ContentPage() {
         <div className="flex items-center justify-center py-20">
           <p className="text-sm text-zinc-500">Loading content...</p>
         </div>
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <p className="text-sm text-zinc-500">
-            {contents.length === 0 ? 'No content yet. Create your first content!' : 'No content matches this filter'}
-          </p>
-        </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {filtered.map(content => (
-            <ContentCard
-              key={content.id}
-              content={content}
-              account={getAccount(content.accountId)}
-            />
-          ))}
-        </div>
+        <>
+          {quarantined.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-red-300">
+                <AlertTriangle className="h-4 w-4" />
+                {quarantined.length} broken {quarantined.length === 1 ? 'entry' : 'entries'} (fix the file on disk to recover)
+              </h3>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {quarantined.map(entry => (
+                  <QuarantineCard key={entry.id} entry={entry} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <p className="text-sm text-zinc-500">
+                {contents.length === 0 && quarantined.length === 0
+                  ? 'No content yet. Create your first content!'
+                  : 'No content matches this filter'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {filtered.map(content => (
+                <ContentCard
+                  key={content.id}
+                  content={content}
+                  account={getAccount(content.accountId)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
