@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from 'fs'
 import { join } from 'path'
-import { logInfo } from '../errors'
-import { createAppError } from '../../../packages/shared/src/errors'
+import { logInfo } from '@main/errors'
+import { createAppError } from '@shared/errors'
 
 const SETTINGS_PATH = join(process.cwd(), 'workspace', 'config', 'settings.json')
 

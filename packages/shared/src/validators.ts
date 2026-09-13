@@ -115,6 +115,14 @@ export function validateAccount(raw: unknown): ValidationResult<Account> {
   if (raw.description !== undefined && !isString(raw.description)) {
     issues.push({ field: 'description', message: 'description must be a string' })
   }
+  // Repliz id: optional; when present and non-empty it must be a safe token.
+  // Observed format: 24-hex Mongo ObjectId (e.g. 680affa5ce12f2f72916f67e).
+  // Accept a conservative superset (1-64 alnum/_/-) so future ids still load.
+  if (raw.replizId !== undefined && raw.replizId !== '' && raw.replizId !== null) {
+    if (typeof raw.replizId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(raw.replizId)) {
+      issues.push({ field: 'replizId', message: 'replizId must be 1-64 chars of letters, digits, _ or -' })
+    }
+  }
   if (raw.workflows !== undefined && !Array.isArray(raw.workflows)) {
     issues.push({ field: 'workflows', message: 'workflows must be an array' })
   }

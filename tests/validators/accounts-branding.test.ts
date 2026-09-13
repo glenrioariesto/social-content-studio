@@ -52,4 +52,21 @@ describe('validateAccount — Flexible Branding additions', () => {
       expect(r.ok).toBe(false)
     }
   })
+
+  it('accepts an empty replizId as absent (legacy shape)', () => {
+    const r = validateAccount({ ...base, replizId: '' })
+    expect(r.ok).toBe(true)
+  })
+
+  it('accepts a 24-hex Repliz account id', () => {
+    const r = validateAccount({ ...base, replizId: '680affa5ce12f2f72916f67e' })
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects an unsafe replizId', () => {
+    for (const bad of ['../x', 'a/b', 'has space', 'x'.repeat(65), 42]) {
+      const r = validateAccount({ ...base, replizId: bad })
+      expect(r.ok).toBe(false)
+    }
+  })
 })

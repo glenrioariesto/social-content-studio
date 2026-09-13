@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { join } from 'path'
 import { initMainErrorHandlers, logError, logInfo } from './errors'
-import { createAppError } from '../../packages/shared/src/errors'
+import { createAppError } from '@shared/errors'
 import { initFileSystemIpc } from './ipc/filesystem'
 import { initAccountsIpc } from './ipc/accounts'
 import { registerSafeIpc } from './ipc/safe-handler'
@@ -9,7 +9,11 @@ import { initRenderIpc } from './ipc/render'
 import { initResourceIpc } from './ipc/resource'
 import { initBackupIpc } from './ipc/backup'
 import { initBatchIpc } from './ipc/batch'
-import { initWatcherService } from './watchers'
+import { initAgentIpc } from './ipc/agent'
+import { initWatcherService, disposeWatcherService } from './watchers'
+import { renderQueue } from './services/render-queue'
+import { getWorkspaceRoot } from './services/workspace-root'
+import { initReplizIpc } from './ipc/repliz'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -26,8 +30,8 @@ function createWindow(): void {
       title: 'Social Content Studio',
       backgroundColor: '#09090b',
       webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
-        sandbox: false,
+        preload: join(__dirname, '../preload/preload.mjs'),
+        sandbox: true,
         contextIsolation: true,
         nodeIntegration: false
       }
@@ -66,6 +70,8 @@ function createWindow(): void {
     initResourceIpc()
     initBackupIpc()
     initBatchIpc()
+    initAgentIpc()
+    initReplizIpc()
     initWatcherService(mainWindow)
 
     logInfo('Application started')
@@ -81,7 +87,14 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  try {
+    const root = getWorkspaceRoot()
+    renderQueue.setPersistFile(join(root, 'renders', 'queue.json'))
+    await renderQueue.init()
+  } catch (err) {
+    logError(createAppError('FS_READ_ERROR', `Queue init: ${(err as Error).message}`, 'main'))
+  }
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -94,6 +107,8 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   logInfo('Application shutting down')
+  disposeWatcherService()
+  void renderQueue.shutdown()
 })
 
 ipcMain.handle('get-app-path', () => app.getPath('userData'))

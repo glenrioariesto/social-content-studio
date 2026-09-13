@@ -10,7 +10,8 @@ import {
   CalendarDays,
   Globe,
   ListTodo,
-  ScrollText
+  ScrollText,
+  Bot
 } from 'lucide-react'
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
   { to: '/resources', icon: Globe, label: 'Resources' },
   { to: '/queue', icon: Clapperboard, label: 'Render Queue' },
   { to: '/batch', icon: ListTodo, label: 'Batch Render' },
+  { to: '/agent', icon: Bot, label: 'Agent Studio' },
   { divider: 'DISTRIBUTION' },
   { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
   { to: '/accounts', icon: Users, label: 'Accounts' },

@@ -1,8 +1,8 @@
 import { spawn } from 'child_process'
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { join, basename } from 'path'
-import { logInfo, logError } from '../errors'
-import { createAppError } from '../../../packages/shared/src/errors'
+import { logInfo, logError } from '@main/errors'
+import { createAppError } from '@shared/errors'
 
 export interface RenderOptions {
   inputPath: string
@@ -59,36 +59,59 @@ export async function renderVideo(opts: RenderOptions): Promise<{ success: boole
     const args = buildFfmpegArgs(opts)
     logInfo(`FFmpeg render started: ${opts.outputPath}`)
 
-    const proc = spawn('ffmpeg', args, { stdio: ['pipe', 'pipe', 'pipe'] })
+    let durationSeconds = 30 // fallback estimate
     let stderr = ''
 
-    proc.stderr.on('data', (data: Buffer) => {
+    // First pass: get input duration for accurate progress
+    const probeArgs = ['-i', opts.inputPath]
+    const probeProc = spawn('ffmpeg', probeArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
+    probeProc.stderr.on('data', (data: Buffer) => {
       const line = data.toString()
-      stderr += line
-      const match = line.match(/time=(\d{2}):(\d{2}):(\d{2})/)
-      if (match && opts.onProgress) {
-        const seconds = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3])
-        opts.onProgress(Math.min(99, Math.floor((seconds / 30) * 100)))
+      const durMatch = line.match(/Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})/)
+      if (durMatch) {
+        durationSeconds = parseInt(durMatch[1]) * 3600 + parseInt(durMatch[2]) * 60 + parseFloat(durMatch[3])
       }
     })
-
-    proc.on('close', (code) => {
-      if (code === 0) {
-        logInfo(`FFmpeg render completed: ${opts.outputPath}`)
-        opts.onProgress?.(100)
-        resolve({ success: true, outputPath: opts.outputPath })
-      } else {
-        const err = createAppError('FFMPEG_ENCODING_ERROR', `FFmpeg exited with code ${code}`, 'main', stderr.slice(-500))
-        logError(err)
-        resolve({ success: false, error: `FFmpeg error (code ${code})` })
-      }
+    probeProc.on('close', () => {
+      startRender()
+    })
+    probeProc.on('error', () => {
+      // If probe fails, proceed with fallback estimate
+      startRender()
     })
 
-    proc.on('error', (err) => {
-      const appErr = createAppError('FFMPEG_NOT_FOUND', err.message, 'main')
-      logError(appErr)
-      resolve({ success: false, error: err.message })
-    })
+    function startRender() {
+      const proc = spawn('ffmpeg', args, { stdio: ['pipe', 'pipe', 'pipe'] })
+
+      proc.stderr.on('data', (data: Buffer) => {
+        const line = data.toString()
+        stderr += line
+        const match = line.match(/time=(\d{2}):(\d{2}):(\d{2}\.\d{2})/)
+        if (match && opts.onProgress) {
+          const seconds = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseFloat(match[3])
+          const pct = durationSeconds > 0 ? Math.min(99, Math.floor((seconds / durationSeconds) * 100)) : 0
+          opts.onProgress(pct)
+        }
+      })
+
+      proc.on('close', (code) => {
+        if (code === 0) {
+          logInfo(`FFmpeg render completed: ${opts.outputPath}`)
+          opts.onProgress?.(100)
+          resolve({ success: true, outputPath: opts.outputPath })
+        } else {
+          const err = createAppError('FFMPEG_ENCODING_ERROR', `FFmpeg exited with code ${code}`, 'main', stderr.slice(-500))
+          logError(err)
+          resolve({ success: false, error: `FFmpeg error (code ${code})` })
+        }
+      })
+
+      proc.on('error', (err) => {
+        const appErr = createAppError('FFMPEG_NOT_FOUND', err.message, 'main')
+        logError(appErr)
+        resolve({ success: false, error: err.message })
+      })
+    }
   })
 }
 

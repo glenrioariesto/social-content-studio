@@ -1,7 +1,8 @@
 import { useContents } from '@/hooks/useContents'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useTemplates } from '@/hooks/useTemplates'
-import { useAppStore } from '@/stores/app-store'
+import { useAccountStore } from '@/stores/app-store'
+import { Card } from '@/components/ui/Card'
 import { FolderOpen, FileVideo, Layers, Users, ArrowRight, Zap, Calendar } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -9,7 +10,7 @@ export function DashboardPage() {
   const { accounts } = useAccounts()
   const { contents } = useContents()
   const { templates } = useTemplates()
-  const { setActiveAccount } = useAppStore()
+  const { setActiveAccount } = useAccountStore()
   const navigate = useNavigate()
 
   const statusCounts = contents.reduce(
@@ -63,18 +64,18 @@ export function DashboardPage() {
           { label: 'Scheduled', value: scheduledCount, icon: Calendar, color: 'text-cyan-400' },
           { label: 'Failed', value: statusCounts['failed'] || 0, icon: FolderOpen, color: 'text-red-400' }
         ].map(stat => (
-          <div key={stat.label} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+          <Card key={stat.label} className="p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm text-zinc-400">{stat.label}</span>
               <stat.icon className={`h-4 w-4 ${stat.color}`} />
             </div>
             <p className="mt-2 text-3xl font-bold">{stat.value}</p>
-          </div>
+          </Card>
         ))}
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className="col-span-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+        <Card className="col-span-2 p-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-zinc-300">Status Overview</h2>
           </div>
@@ -89,10 +90,10 @@ export function DashboardPage() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
 
         <div className="space-y-4">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+          <Card className="p-5">
             <h2 className="mb-3 text-sm font-semibold text-zinc-300">Accounts</h2>
             <div className="space-y-2">
               {accounts.map(account => {
@@ -112,9 +113,9 @@ export function DashboardPage() {
                 )
               })}
             </div>
-          </div>
+          </Card>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+          <Card className="p-5">
             <h2 className="mb-3 text-sm font-semibold text-zinc-300">Quick Actions</h2>
             <div className="space-y-1">
               {[
@@ -133,11 +134,11 @@ export function DashboardPage() {
                 </button>
               ))}
             </div>
-          </div>
+          </Card>
         </div>
       </div>
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+      <Card className="p-5">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-300">Recent Activity</h2>
           <button onClick={() => navigate('/content')} className="text-xs text-zinc-500 hover:text-zinc-300">
@@ -171,7 +172,7 @@ export function DashboardPage() {
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

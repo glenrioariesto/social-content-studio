@@ -17,10 +17,12 @@ export interface TemplateLayer {
   style?: Record<string, string>
 }
 
+import type { TemplateType } from './domain'
+
 export interface TemplateDefinition {
   id: string
   name: string
-  type: string
+  type: TemplateType
   accountId?: string
   category?: string
   description?: string

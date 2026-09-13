@@ -1,10 +1,13 @@
 import { useRenderQueue } from '@/hooks/useRenderQueue'
 import { Clapperboard, CheckCircle, XCircle, Clock, Loader } from 'lucide-react'
+import { Card } from '@/components/ui/Card'
+import { Badge } from '@/components/ui/Badge'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 export function RenderQueuePage() {
-  const { jobs } = useRenderQueue()
+  const { jobs, error } = useRenderQueue()
 
-  const active = jobs.filter(j => j.status === 'rendering' || j.status === 'queued')
+  const active = jobs.filter(j => j.status === 'rendering' || j.status === 'waiting')
   const completed = jobs.filter(j => j.status === 'completed')
   const failed = jobs.filter(j => j.status === 'failed')
 
@@ -15,15 +18,21 @@ export function RenderQueuePage() {
         <p className="mt-1 text-sm text-zinc-400">{active.length} active · {completed.length} completed · {failed.length} failed</p>
       </div>
 
+      {error && (
+        <Card className="border-amber-800/40 bg-amber-950/20 p-4 text-xs text-amber-200">
+          {error}
+        </Card>
+      )}
+
       {jobs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Clapperboard className="mb-3 h-10 w-10 text-zinc-700" />
-          <p className="text-sm text-zinc-500">No render jobs yet</p>
-        </div>
+        <EmptyState
+          icon={<Clapperboard className="h-10 w-10" />}
+          title="No render jobs yet"
+        />
       ) : (
         <div className="space-y-3">
           {active.map(job => (
-            <div key={job.id} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+            <Card key={job.id} className="p-4">
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {job.status === 'rendering' ? (
@@ -32,7 +41,7 @@ export function RenderQueuePage() {
                     <Clock className="h-4 w-4 text-zinc-500" />
                   )}
                   <span className="text-sm font-medium">{job.contentId}</span>
-                  <span className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-400">{job.status}</span>
+                  <Badge>{job.status}</Badge>
                 </div>
                 <span className="text-xs text-zinc-500">{job.id}</span>
               </div>
@@ -43,23 +52,23 @@ export function RenderQueuePage() {
                 />
               </div>
               <p className="mt-1 text-right text-[10px] text-zinc-600">{job.progress}%</p>
-            </div>
+            </Card>
           ))}
 
           {completed.map(job => (
-            <div key={job.id} className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+            <Card key={job.id} className="flex items-center gap-3 p-4">
               <CheckCircle className="h-4 w-4 text-green-400" />
               <span className="text-sm">{job.contentId}</span>
               <span className="text-xs text-zinc-500">Completed</span>
-            </div>
+            </Card>
           ))}
 
           {failed.map(job => (
-            <div key={job.id} className="flex items-center gap-3 rounded-xl border border-red-900/30 bg-red-950/20 p-4">
+            <Card key={job.id} className="flex items-center gap-3 border-red-900/30 bg-red-950/20 p-4">
               <XCircle className="h-4 w-4 text-red-400" />
               <span className="text-sm">{job.contentId}</span>
               <span className="text-xs text-red-400">{job.error || 'Failed'}</span>
-            </div>
+            </Card>
           ))}
         </div>
       )}

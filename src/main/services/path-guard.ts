@@ -1,5 +1,5 @@
 import { resolve, isAbsolute, normalize, sep, relative } from 'path'
-import { createAppError } from '../../../packages/shared/src/errors'
+import { createAppError } from '@shared/errors'
 
 /**
  * Confinement Guard. Resolves a candidate path against the Workspace Root and

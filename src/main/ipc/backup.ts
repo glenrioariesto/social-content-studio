@@ -4,11 +4,11 @@ import { readFile, readdir, writeFile, stat } from 'fs/promises'
 import { existsSync, statSync } from 'fs'
 import { spawn } from 'child_process'
 import AdmZip from 'adm-zip'
-import { logInfo, logError } from '../errors'
-import { createAppError } from '../../../packages/shared/src/errors'
-import { getWorkspaceRoot } from '../services/workspace-root'
-import { assertInsideWorkspace } from '../services/path-guard'
-import { atomicWriteJson } from '../services/persistence'
+import { logInfo, logError } from '@main/errors'
+import { createAppError } from '@shared/errors'
+import { getWorkspaceRoot } from '@main/services/workspace-root'
+import { assertInsideWorkspace } from '@main/services/path-guard'
+import { atomicWriteJson } from '@main/services/persistence'
 
 export function initBackupIpc(): void {
   const ws = () => getWorkspaceRoot()

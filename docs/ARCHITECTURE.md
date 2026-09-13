@@ -1,7 +1,7 @@
 ---
 goal: Repository Architecture and Structure Documentation
 date_created: 2026-08-24
-last_updated: 2026-08-24
+last_updated: 2026-09-13
 status: 'Active'
 ---
 
@@ -12,6 +12,8 @@ status: 'Active'
 This document serves as the canonical architectural map of the repository. It outlines the design patterns, technical stack, directory structure, and module constraints to assist developers and AI agents in navigating and maintaining the codebase safely.
 
 > **Last major update:** Foundation Stabilization (2026-08-24) — added a shared-contract `LoadedEntry<T>` data model, a Confinement Guard for every path-taking IPC channel, durable content IDs, atomic JSON writes, a content lifecycle transition guard, a startup sweep for interrupted renders, and a `bun test` harness. See `docs/adr/0001-backup-confinement-whitelist.md` and the spec `spec/spec-architecture-foundation-stabilization.md`.
+
+> **Update (2026-09-13):** Contract realignment — `Template` and `Resource` in `packages/shared` are now single canonical definitions re-exported from `index.ts` (`Template = TemplateDefinition`; `Resource`/`DownloadJob`/`ResourceStatus` from `resource.ts`), the stale inline `Resource` (with `downloadedFile`) was removed, and the Resources feature was wired end-to-end: `resource:list/download/upload/delete` handlers in `src/main/ipc/resource.ts` (confined via `getWorkspaceRoot` + `assertInsideWorkspace`, meta-JSON per entry, delete removes file + meta), matching bridges in `src/preload/index.ts`, type declarations in `electron.d.ts`, and renderer hook `useResources` + `ResourcesPage.tsx`. Template descriptors read via `workspace:get-templates` (`workspace/templates/<id>/template.json`, `loadEntry<Template>` + `validateTemplate`, `TEMPLATE_NOT_FOUND`); renderer template create/delete persists through the `electron.fs` bridge (no dedicated channel). Full IPC surface audit (preload ↔ main ↔ `electron.d.ts`) passed: all 11 groups (`window`/`fs`/`workspace`/`account`/`resource`/`render`/`backup`/`settings`/`repliz`/`agent`/`batch`) are aligned, including two-way render events.
 
 ## 1. Project Overview
 
@@ -132,7 +134,7 @@ Key runtime npm dependencies: `react`, `react-dom`, `react-router-dom`, `zustand
 │   │   │   ├── render.ts        # render:start/cancel/jobs/thumbnail/concurrency
 │   │   │   ├── batch.ts         # CSV-driven bulk content creation/enqueue
 │   │   │   ├── backup.ts        # workspace export/import (adm-zip, no shell)
-│   │   │   └── resource.ts      # asset/resource ingestion
+│   │   │   └── resource.ts      # asset/resource ingestion (confined, meta-JSON, delete file+meta)
 │   │   ├── services/
 │   │   │   ├── path-guard.ts     # assertInsideWorkspace Confinement Guard + symlink realpath re-check
 │   │   │   ├── workspace-root.ts # getWorkspaceRoot() centralized resolver

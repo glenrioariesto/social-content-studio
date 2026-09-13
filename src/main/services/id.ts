@@ -1,6 +1,6 @@
 import { existsSync } from 'fs'
 import { join } from 'path'
-import { createAppError } from '../../../packages/shared/src/errors'
+import { createAppError } from '@shared/errors'
 
 const MAX_ID_ATTEMPTS = 5
 

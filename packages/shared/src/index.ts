@@ -1,32 +1,63 @@
-export type ContentStatus =
-  | 'idea'
-  | 'draft'
-  | 'ready'
-  | 'rendering'
-  | 'ready-to-post'
-  | 'posted'
-  | 'failed'
+export * from './domain'
 
-export type WorkflowType = 'manual-video' | 'internet-video' | 'product-video'
+// Re-export domain types and constants
+export {
+  CONTENT_STATUSES,
+  isContentStatus,
+  WORKFLOW_TYPES,
+  isWorkflowType,
+  TEMPLATE_TYPES,
+  isTemplateType,
+  RENDER_PRESETS,
+  isRenderPreset,
+  RENDER_JOB_STATUSES,
+  isRenderJobStatus,
+  FILE_CHANGE_TYPES,
+  ALLOWED_LOGO_EXTENSIONS,
+  MAX_LOGO_BYTES,
+  SAFE_ID_PATTERN,
+  REPLIZ_ID_PATTERN,
+  isSafeId,
+  isReplizId
+} from './domain'
 
-export type TemplateType =
-  | 'html-template'
-  | 'video-overlay'
-  | 'image-overlay'
-  | 'ffmpeg-composition'
-
-export type RenderPreset = 'instagram-reels' | 'tiktok' | 'youtube-shorts'
+// Re-export domain types for use in this file
+import type { ContentStatus, WorkflowType, TemplateType, RenderPreset, RenderJobStatus, FileChangeType, LogoExtension } from './domain'
+export type { ContentStatus, WorkflowType, TemplateType, RenderPreset, RenderJobStatus, FileChangeType, LogoExtension }
 
 export interface Account {
   id: string
   name: string
   description?: string
+  /** Repliz account id (GET /public/account/{accountId}), e.g. Mongo ObjectId. */
+  replizId?: string
+  /** Repliz platform type, e.g. tiktok | instagram | youtube | facebook | threads | linkedin. */
+  replizPlatform?: string
+  /** Cached repliz connection status. `null` = unknown/offline. */
+  replizConnected?: boolean
+  /** Last successful verification timestamp (ISO). */
+  replizVerifiedAt?: string
   workflows: WorkflowType[]
   templates: string[]
   branding: {
     logo?: string
     watermark?: string
   }
+}
+
+export interface ReplizCredentialsStatus {
+  configured: boolean
+  encrypted: boolean
+  accessKeyMasked?: string
+}
+
+export interface ReplizAccountVerifyResult {
+  replizId: string
+  name: string
+  username: string
+  type: string
+  isConnected: boolean
+  verifiedAt: string
 }
 
 export interface Content {
@@ -49,40 +80,11 @@ export interface Content {
   updatedAt: string
 }
 
-export interface Template {
-  id: string
-  name: string
-  type: TemplateType
-  accountId?: string
-  input: {
-    type: 'video' | 'image' | 'html'
-  }
-  output: {
-    width: number
-    height: number
-    fps: number
-  }
-  overlay?: {
-    file: string
-    position: string
-  }
-  audio?: {
-    enabled: boolean
-  }
-  variables?: string[]
-}
+export type { TemplateDefinition as Template } from './template'
 
-export interface Resource {
-  id: string
-  source: string
-  sourceUrl?: string
-  downloadedFile: string
-  thumbnail?: string
-  duration?: number
-  resolution?: string
-  tags?: string[]
-  createdAt: string
-}
+export type { Resource, DownloadJob, ResourceStatus } from './resource'
+
+export type { RenderJobSummary } from './render'
 
 export interface Recipe {
   id: string

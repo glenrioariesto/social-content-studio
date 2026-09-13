@@ -1,28 +1,35 @@
 import { useEffect, useState, useCallback } from 'react'
-
-interface RenderJobData {
-  id: string
-  contentId: string
-  status: 'queued' | 'rendering' | 'completed' | 'failed'
-  progress: number
-  error?: string
-  createdAt: string
-  completedAt?: string
-}
+import { callIpc, requireBridge } from '@/lib/ipc-call'
+import { useErrorToast } from './useErrorToast'
+import type { RenderJobSummary } from '@shared/index'
 
 export function useRenderQueue() {
-  const [jobs, setJobs] = useState<RenderJobData[]>([])
+  const [jobs, setJobs] = useState<RenderJobSummary[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const { showError } = useErrorToast()
 
   const loadJobs = useCallback(async () => {
-    const result = await window.electron.render.jobs()
-    if (result.success && result.data) {
-      setJobs(result.data as RenderJobData[])
+    if (!window.electron?.render) {
+      setError('Bridge tidak tersedia. Mulai ulang aplikasi.')
+      return
     }
-  }, [])
+    const result = await callIpc({
+      call: () => window.electron.render.jobs(),
+      showError,
+      errorPrefix: 'Gagal memuat render queue'
+    })
+    if (result.ok && result.data) {
+      setJobs(result.data)
+      setError(null)
+    } else if (!result.ok) {
+      setError(result.message)
+    }
+  }, [showError])
 
   useEffect(() => { loadJobs() }, [loadJobs])
 
   useEffect(() => {
+    if (!window.electron?.on) return
     const unsubs = [
       window.electron.on('render:progress', (data: unknown) => {
         const d = data as { id: string; progress: number }
@@ -44,5 +51,5 @@ export function useRenderQueue() {
     return () => unsubs.forEach(u => u())
   }, [])
 
-  return { jobs, reload: loadJobs }
+  return { jobs, error, reload: loadJobs }
 }

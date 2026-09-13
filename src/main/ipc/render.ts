@@ -1,8 +1,9 @@
 import { BrowserWindow } from 'electron'
 import { safeIpcMain } from './safe-handler'
-import { renderQueue, type RenderJob } from '../services/render-queue'
-import { renderVideo, generateThumbnail } from '../services/render-engine'
-import { logInfo } from '../errors'
+import { renderQueue, type RenderJob } from '@main/services/render-queue'
+import { renderVideo, generateThumbnail } from '@main/services/render-engine'
+import { logInfo } from '@main/errors'
+import type { RenderJobSummary } from '@shared/render'
 
 export function initRenderIpc(mainWindow: BrowserWindow): void {
   function sendToRenderer(channel: string, data: unknown) {
@@ -27,7 +28,7 @@ export function initRenderIpc(mainWindow: BrowserWindow): void {
     overlayPosition?: string
     preset?: string
   }) => {
-    const job = renderQueue.addJob({
+    const job = await renderQueue.addJob({
       id: `render-${Date.now()}`,
       contentId: jobData.contentId,
       options: {
@@ -46,12 +47,13 @@ export function initRenderIpc(mainWindow: BrowserWindow): void {
   }, 'RENDER_FAILED')
 
   safeIpcMain('render:cancel', async (_event, jobId: string) => {
-    const ok = renderQueue.cancelJob(jobId)
+    const ok = await renderQueue.cancelJob(jobId)
     return { success: ok }
   }, 'RENDER_FAILED')
 
   safeIpcMain('render:jobs', async () => {
-    const jobs = renderQueue.getAllJobs().map(j => ({
+    await renderQueue.ensureReady()
+    const jobs: RenderJobSummary[] = renderQueue.getAllJobs().map(j => ({
       id: j.id,
       contentId: j.contentId,
       status: j.status,

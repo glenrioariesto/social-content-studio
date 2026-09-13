@@ -1,6 +1,6 @@
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
-import { logError } from '../errors'
-import { createAppError, toIPCError, type ErrorCode } from '../../../packages/shared/src/errors'
+import { logError } from '@main/errors'
+import { createAppError, toIPCError, type ErrorCode } from '@shared/errors'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type IpcHandler<TArgs extends any[] = any[]> = (event: IpcMainInvokeEvent, ...args: TArgs) => Promise<unknown> | unknown

@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { appendFile, mkdir } from 'fs/promises'
 import { join } from 'path'
-import { createAppError, type AppError } from '../../packages/shared/src/errors'
+import { createAppError, type AppError } from '@shared/errors'
 
 const LOG_DIR = join(process.cwd(), 'workspace', 'config', 'logs')
 let logInitialized = false

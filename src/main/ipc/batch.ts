@@ -1,6 +1,6 @@
 import { join } from 'path'
 import { readFile, writeFile, readdir, mkdir } from 'fs/promises'
-import { logInfo } from '../errors'
+import { logInfo } from '@main/errors'
 import { safeIpcMain } from './safe-handler'
 
 interface BatchRow {

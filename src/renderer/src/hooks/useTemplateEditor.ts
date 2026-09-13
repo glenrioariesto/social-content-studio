@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { applyTemplateVariables } from '@shared/template-vars'
-import { useAppStore } from '@/stores/app-store'
+import { useAccounts } from './useAccounts'
 
 interface FileContent {
   html: string
@@ -10,7 +10,7 @@ interface FileContent {
 
 export function useTemplateEditor(templateId: string | null) {
   const [files, setFiles] = useState<FileContent>({ html: '', css: '', json: '' })
-  const { accounts } = useAppStore()
+  const { accounts } = useAccounts()
   const [activeFile, setActiveFile] = useState<'html' | 'css' | 'json'>('html')
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(true)

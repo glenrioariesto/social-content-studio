@@ -31,10 +31,17 @@ const electronAPI = {
   },
 
   account: {
-    create: (data: { name: string; description?: string }) => ipcRenderer.invoke('account:create', data),
+    create: (data: { name: string; description?: string; replizId?: string }) => ipcRenderer.invoke('account:create', data),
     update: (id: string, data: Record<string, unknown>) => ipcRenderer.invoke('account:update', id, data),
     setLogo: (id: string, sourcePath: string) => ipcRenderer.invoke('account:set-logo', id, sourcePath),
     getLogoUrl: (id: string) => ipcRenderer.invoke('account:get-logo-url', id)
+  },
+
+  resource: {
+    list: () => ipcRenderer.invoke('resource:list'),
+    download: (url: string, fileName?: string) => ipcRenderer.invoke('resource:download', url, fileName),
+    upload: (sourcePath: string, fileName: string) => ipcRenderer.invoke('resource:upload', sourcePath, fileName),
+    delete: (id: string) => ipcRenderer.invoke('resource:delete', id)
   },
 
   render: {
@@ -55,6 +62,17 @@ const electronAPI = {
     read: () => ipcRenderer.invoke('settings:read'),
     write: (settings: Record<string, unknown>) => ipcRenderer.invoke('settings:write', settings),
     validateFfmpeg: (ffmpegPath: string) => ipcRenderer.invoke('settings:validate-ffmpeg', ffmpegPath)
+  },
+
+  repliz: {
+    getCredentialsStatus: () => ipcRenderer.invoke('repliz:get-credentials-status'),
+    saveCredentials: (accessKey: string, secretKey: string) => ipcRenderer.invoke('repliz:save-credentials', accessKey, secretKey),
+    verifyAccount: (accountId: string, replizId: string) => ipcRenderer.invoke('repliz:verify-account', accountId, replizId)
+  },
+
+  agent: {
+    listTools: () => ipcRenderer.invoke('agent:list-tools'),
+    invoke: (req: { tool: string; args: Record<string, unknown> }) => ipcRenderer.invoke('agent:invoke', req)
   },
 
   batch: {

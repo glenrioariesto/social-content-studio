@@ -13,7 +13,13 @@
     "outDir": "dist",
     "rootDir": ".",
     "lib": ["ES2022"],
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@main/*": ["src/main/*"],
+      "@preload/*": ["src/preload/*"],
+      "@shared/*": ["packages/shared/src/*"]
+    }
   },
   "include": [
     "src/main/**/*",

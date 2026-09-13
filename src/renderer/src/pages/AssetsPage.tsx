@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { FolderOpen, Image, Music, Film, Type, Trash2 } from 'lucide-react'
 import { useErrorToast } from '@/hooks/useErrorToast'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { LoadingState } from '@/components/ui/LoadingState'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 interface AssetList {
   images: string[]
@@ -73,12 +77,7 @@ export function AssetsPage() {
           <h1 className="text-2xl font-bold">Assets</h1>
           <p className="mt-1 text-sm text-zinc-400">Images, audio, video, and fonts</p>
         </div>
-        <button
-          onClick={handleUpload}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
-        >
-          + Upload
-        </button>
+        <Button onClick={handleUpload}>+ Upload</Button>
       </div>
 
       <div className="flex gap-1 border-b border-zinc-800">
@@ -104,18 +103,13 @@ export function AssetsPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <p className="text-sm text-zinc-500">Loading...</p>
-        </div>
+        <LoadingState label="Loading assets..." />
       ) : currentAssets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <FolderOpen className="mb-3 h-10 w-10 text-zinc-700" />
-          <p className="text-sm text-zinc-500">No {activeTab} yet</p>
-        </div>
+        <EmptyState icon={<FolderOpen className="h-10 w-10" />} title={`No ${activeTab} yet`} />
       ) : (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
           {currentAssets.map(name => (
-            <div key={name} className="group rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 transition-all hover:border-zinc-600">
+            <Card key={name} className="group p-3 transition-all hover:border-zinc-600">
               <div className="mb-2 aspect-square rounded-lg bg-zinc-800/50 flex items-center justify-center">
                 {activeTab === 'images' ? (
                   <img
@@ -136,7 +130,7 @@ export function AssetsPage() {
                   <Trash2 className="h-3 w-3" />
                 </button>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

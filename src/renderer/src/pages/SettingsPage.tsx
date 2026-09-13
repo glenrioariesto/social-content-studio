@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Download, Upload, HardDrive, RefreshCw, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import { useErrorToast } from '@/hooks/useErrorToast'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { Input, Select } from '@/components/ui/Field'
 
 interface BackupInfo {
-  accounts: number
-  contents: number
-  templates: number
-  resources: number
-  assets: number
+  [key: string]: number
 }
 
 interface AppSettings {
@@ -29,12 +28,12 @@ export function SettingsPage() {
 
   const loadInfo = useCallback(async () => {
     const [infoRes, settingsRes] = await Promise.all([
-      (window.electron as any).backup?.info?.(),
-      (window.electron as any).settings?.read?.()
+      window.electron.backup.info(),
+      window.electron.settings.read()
     ])
-    if (infoRes?.success) setBackupInfo(infoRes.data)
-    if (settingsRes?.success) {
-      const data = settingsRes.data as AppSettings
+    if (infoRes.success && infoRes.data) setBackupInfo(infoRes.data)
+    if (settingsRes.success && settingsRes.data) {
+      const data = settingsRes.data
       setSettings(data)
       setWorkspaceDir(data.workspacePath || '')
       setFfmpegPath(data.ffmpegPath || '')
@@ -47,16 +46,16 @@ export function SettingsPage() {
   useEffect(() => {
     let cancelled = false
     if (!ffmpegPath) { setFfmpegStatus(null); return }
-    ;(window.electron as any).settings?.validateFfmpeg?.(ffmpegPath).then((res: any) => {
-      if (!cancelled && res?.success) setFfmpegStatus(res.data)
+    ;(window.electron.settings.validateFfmpeg(ffmpegPath)).then((res) => {
+      if (!cancelled && res.success && res.data) setFfmpegStatus(res.data)
     })
     return () => { cancelled = true }
   }, [ffmpegPath])
 
   const handleExport = async () => {
     setExporting(true)
-    const result = await (window.electron as any).backup?.export?.()
-    if (result?.success) {
+    const result = await window.electron.backup.export()
+    if (result.success) {
       showSuccess(`Backup exported to: ${result.data}`)
     } else {
       showInfo('Export failed')
@@ -66,8 +65,8 @@ export function SettingsPage() {
 
   const handleSaveSettings = async () => {
     const next = { ...settings, workspacePath: workspaceDir, ffmpegPath: ffmpegPath }
-    const result = await (window.electron as any).settings?.write?.(next)
-    if (result?.success) {
+    const result = await window.electron.settings.write(next)
+    if (result.success) {
       setSettings(next)
       if (result.requiresRestart) {
         setRestartNotice(true)
@@ -88,58 +87,54 @@ export function SettingsPage() {
       </div>
 
       {restartNotice && (
-        <div className="flex items-center gap-2 rounded-xl border border-amber-800/50 bg-amber-950/30 p-4 text-sm text-amber-300">
+        <Card className="flex items-center gap-2 border-amber-800/50 bg-amber-950/30 p-4 text-sm text-amber-300">
           <AlertTriangle className="h-4 w-4" />
           The workspace folder change takes effect after you restart the application.
-        </div>
+        </Card>
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-4">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+          <Card className="p-5">
             <h2 className="mb-4 text-sm font-semibold text-zinc-300">Render Settings</h2>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-sm text-zinc-400">Default Preset</label>
-                <select
+                <Select
                   value={settings.defaultPreset}
                   onChange={e => setSettings(s => ({ ...s, defaultPreset: e.target.value }))}
-                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 outline-none focus:border-indigo-500"
+                  className="py-1.5"
                 >
                   <option value="instagram-reels">Instagram Reels</option>
                   <option value="tiktok">TikTok</option>
                   <option value="youtube-shorts">YouTube Shorts</option>
-                </select>
+                </Select>
               </div>
               <div className="flex items-center justify-between">
                 <label className="text-sm text-zinc-400">Max Concurrent Renders</label>
-                <select
+                <Select
                   value={settings.maxConcurrentRender}
                   onChange={e => setSettings(s => ({ ...s, maxConcurrentRender: Number(e.target.value) }))}
-                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 outline-none focus:border-indigo-500"
+                  className="py-1.5"
                 >
                   <option value={1}>1</option>
                   <option value={2}>2</option>
                   <option value={3}>3</option>
-                </select>
+                </Select>
               </div>
-              <button
-                onClick={handleSaveSettings}
-                className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-              >
+              <Button onClick={handleSaveSettings} className="mt-2">
                 Save Settings
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+          <Card className="p-5">
             <h2 className="mb-3 text-sm font-semibold text-zinc-300">FFmpeg</h2>
             <div className="space-y-2">
-              <input
+              <Input
                 value={ffmpegPath}
                 onChange={e => setFfmpegPath(e.target.value)}
                 placeholder="Path to ffmpeg executable"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 outline-none focus:border-indigo-500"
               />
               {ffmpegStatus && (
                 <div className={`flex items-center gap-2 text-sm ${ffmpegStatus.found && ffmpegStatus.isFile ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -149,11 +144,11 @@ export function SettingsPage() {
                 </div>
               )}
             </div>
-          </div>
+          </Card>
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+          <Card className="p-5">
             <h2 className="mb-4 text-sm font-semibold text-zinc-300">Backup & Export</h2>
             {backupInfo && (
               <div className="mb-4 grid grid-cols-3 gap-3">
@@ -166,46 +161,39 @@ export function SettingsPage() {
               </div>
             )}
             <div className="flex gap-2">
-              <button
+              <Button
+                variant="secondary"
                 onClick={handleExport}
                 disabled={exporting}
-                className="flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700 disabled:opacity-50"
               >
                 <Download className="h-4 w-4" />
                 {exporting ? 'Exporting...' : 'Export Backup'}
-              </button>
-              <button
-                onClick={loadInfo}
-                className="flex items-center gap-2 rounded-lg border border-zinc-800 px-4 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-              >
+              </Button>
+              <Button variant="outline" onClick={loadInfo}>
                 <RefreshCw className="h-4 w-4" />
                 Refresh
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+          <Card className="p-5">
             <h2 className="mb-3 text-sm font-semibold text-zinc-300">Workspace</h2>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-zinc-400">
                 <HardDrive className="h-4 w-4" />
                 <span>workspace/</span>
               </div>
-              <input
+              <Input
                 value={workspaceDir}
                 onChange={e => setWorkspaceDir(e.target.value)}
                 placeholder="Custom workspace folder (requires restart)"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 outline-none focus:border-indigo-500"
               />
               <p className="text-[11px] text-zinc-500">Changing this takes effect after an app restart. The folder must exist.</p>
-              <button
-                onClick={handleSaveSettings}
-                className="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700"
-              >
+              <Button variant="secondary" onClick={handleSaveSettings}>
                 Save Workspace
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
     </div>

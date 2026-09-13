@@ -2,25 +2,17 @@ import { type BrowserWindow } from 'electron'
 import { readFile, writeFile, readdir, mkdir, rm, stat, access, realpath } from 'fs/promises'
 import { join, sep } from 'path'
 import { safeIpcMain } from './safe-handler'
-import { logError, logInfo } from '../errors'
-import { createAppError, type ErrorCode } from '../../../packages/shared/src/errors'
-import { assertInsideWorkspace } from '../services/path-guard'
-import { getWorkspaceRoot } from '../services/workspace-root'
-import { generateUniqueContentId } from '../services/id'
-import { atomicWriteJson, mergeKnownFields } from '../services/persistence'
-import { assertLegalTransition } from '../services/lifecycle'
-import { validateContent, validateTemplate, validateAccount, type ValidationIssue } from '../../../packages/shared/src/validators'
-import type { Content, Template, Account } from '../../../packages/shared/src/index'
-import type { LoadedEntry } from '../../../packages/shared/src/loaded-entry'
-
-/** A content id is server-generated (`content-<ts>-<hex>`); reject anything that
- *  could carry a separator or traversal segment (SEC-02). */
-const SAFE_ID = /^[A-Za-z0-9._-]+$/
-function assertSafeId(id: string, channel: string): void {
-  if (!SAFE_ID.test(id) || id.includes('..')) {
-    throw createAppError('FS_PERMISSION_DENIED', `Invalid id: ${id}`, 'ipc', { channel, requested: id })
-  }
-}
+import { assertSafeId } from './ipc-handler'
+import { logError, logInfo } from '@main/errors'
+import { createAppError, type ErrorCode } from '@shared/errors'
+import { assertInsideWorkspace } from '@main/services/path-guard'
+import { getWorkspaceRoot } from '@main/services/workspace-root'
+import { generateUniqueContentId } from '@main/services/id'
+import { atomicWriteJson, mergeKnownFields } from '@main/services/persistence'
+import { assertLegalTransition } from '@main/services/lifecycle'
+import { validateContent, validateTemplate, validateAccount, type ValidationIssue } from '@shared/validators'
+import type { Content, Template, Account } from '@shared/index'
+import type { LoadedEntry } from '@shared/loaded-entry'
 
 function fsError(code: ErrorCode, err: unknown, context?: string) {
   return createAppError(code, err instanceof Error ? err.message : String(err), 'ipc', context)
@@ -70,7 +62,7 @@ async function guardOrThrow(channel: string, root: string, candidate: string): P
     return real
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'FS_PERMISSION_DENIED') {
-      void logError(err as unknown as import('../../../packages/shared/src/errors').AppError)
+      void logError(err as unknown as import('@shared/errors').AppError)
     }
     throw err
   }

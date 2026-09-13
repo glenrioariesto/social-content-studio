@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { X, ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { useAccounts } from '@/hooks/useAccounts'
-import { useAppStore } from '@/stores/app-store'
 import { useErrorToast } from '@/hooks/useErrorToast'
+import { Button } from '@/components/ui/Button'
+import { Input, Textarea } from '@/components/ui/Field'
 import type { Account, WorkflowType } from '@shared/index'
 
 interface ContentCreationWizardProps {
@@ -35,7 +36,6 @@ export function ContentCreationWizard({ onClose }: ContentCreationWizardProps) {
     hashtags: ''
   })
   const { accounts } = useAccounts()
-  const { addContent } = useAppStore()
   const { showSuccess, showInfo } = useErrorToast()
 
   const selectedAccount = accounts.find(a => a.id === data.accountId)
@@ -59,7 +59,6 @@ export function ContentCreationWizard({ onClose }: ContentCreationWizardProps) {
     })
 
     if (result.success) {
-      addContent(result.data as any)
       showSuccess('Content created!')
       onClose()
     } else {
@@ -72,9 +71,9 @@ export function ContentCreationWizard({ onClose }: ContentCreationWizardProps) {
       <div className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl">
         <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
           <h2 className="text-lg font-semibold">New Content</h2>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-200">
+          <Button variant="ghost" size="icon" onClick={onClose} className="text-zinc-400 hover:text-zinc-200">
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         <div className="px-6 py-2">
@@ -146,42 +145,38 @@ export function ContentCreationWizard({ onClose }: ContentCreationWizardProps) {
               <h3 className="text-sm font-medium text-zinc-300">Content Details</h3>
               <div>
                 <label className="mb-1 block text-xs text-zinc-500">Title *</label>
-                <input
+                <Input
                   type="text"
                   value={data.title}
                   onChange={e => setData(d => ({ ...d, title: e.target.value }))}
                   placeholder="e.g., AI News Today"
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
                 />
               </div>
               <div>
                 <label className="mb-1 block text-xs text-zinc-500">Description</label>
-                <textarea
+                <Textarea
                   value={data.description}
                   onChange={e => setData(d => ({ ...d, description: e.target.value }))}
                   placeholder="Brief description..."
                   rows={2}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
                 />
               </div>
               <div>
                 <label className="mb-1 block text-xs text-zinc-500">Caption</label>
-                <textarea
+                <Textarea
                   value={data.caption}
                   onChange={e => setData(d => ({ ...d, caption: e.target.value }))}
                   placeholder="Caption for the post..."
                   rows={2}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
                 />
               </div>
               <div>
                 <label className="mb-1 block text-xs text-zinc-500">Hashtags (comma separated)</label>
-                <input
+                <Input
                   type="text"
                   value={data.hashtags}
                   onChange={e => setData(d => ({ ...d, hashtags: e.target.value }))}
                   placeholder="#ai, #tech, #news"
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -224,31 +219,25 @@ export function ContentCreationWizard({ onClose }: ContentCreationWizardProps) {
         </div>
 
         <div className="flex items-center justify-between border-t border-zinc-800 px-6 py-4">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => step > 1 ? setStep(s => s - 1) : onClose()}
-            className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200"
+            className="text-sm"
           >
             <ArrowLeft className="h-4 w-4" />
             {step > 1 ? 'Back' : 'Cancel'}
-          </button>
+          </Button>
 
           {step < 4 ? (
-            <button
-              onClick={() => setStep(s => s + 1)}
-              disabled={!canNext()}
-              className="flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <Button onClick={() => setStep(s => s + 1)} disabled={!canNext()}>
               Next
               <ArrowRight className="h-4 w-4" />
-            </button>
+            </Button>
           ) : (
-            <button
-              onClick={handleCreate}
-              className="flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
-            >
+            <Button onClick={handleCreate}>
               <Check className="h-4 w-4" />
               Create Content
-            </button>
+            </Button>
           )}
         </div>
       </div>

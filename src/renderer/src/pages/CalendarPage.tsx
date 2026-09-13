@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react'
 import { useContents } from '@/hooks/useContents'
 import { useAccounts } from '@/hooks/useAccounts'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -69,19 +71,19 @@ export function CalendarPage() {
           <p className="mt-1 text-sm text-zinc-400">Content schedule overview</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={prev} className="rounded-lg border border-zinc-800 p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">
+          <Button variant="outline" size="icon" onClick={prev}>
             <ChevronLeft className="h-4 w-4" />
-          </button>
+          </Button>
           <span className="min-w-[160px] text-center text-sm font-semibold">
             {MONTHS[month]} {year}
           </span>
-          <button onClick={next} className="rounded-lg border border-zinc-800 p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">
+          <Button variant="outline" size="icon" onClick={next}>
             <ChevronRight className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
+      <Card>
         <div className="grid grid-cols-7 border-b border-zinc-800">
           {DAYS.map(d => (
             <div key={d} className="px-3 py-2 text-center text-xs font-semibold text-zinc-500">
@@ -124,7 +126,7 @@ export function CalendarPage() {
             </div>
           ))}
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

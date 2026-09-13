@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { X, Upload, Image as ImageIcon, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Input, Textarea } from '@/components/ui/Field'
 import type { Account } from '@shared/index'
 
 interface AccountEditorProps {
@@ -18,6 +20,7 @@ export function AccountEditor({ account, onClose, onSaved }: AccountEditorProps)
   const isEdit = account !== null
   const [name, setName] = useState(account?.name ?? '')
   const [description, setDescription] = useState(account?.description ?? '')
+  const [replizId, setReplizId] = useState(account?.replizId ?? '')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -80,14 +83,18 @@ export function AccountEditor({ account, onClose, onSaved }: AccountEditorProps)
       setError('Name is required')
       return
     }
+    if (replizId.trim().length > 0 && !/^[A-Za-z0-9_-]{1,64}$/.test(replizId.trim())) {
+      setError('Repliz ID must be 1-64 chars of letters, digits, _ or - (e.g. 680affa5ce12f2f72916f67e)')
+      return
+    }
     setSaving(true)
     setError(null)
     try {
       if (isEdit && account) {
-        const res = await window.electron.account.update(account.id, { name: name.trim(), description })
+        const res = await window.electron.account.update(account.id, { name: name.trim(), description, replizId: replizId.trim() })
         if (!res.success) throw new Error(res.error ?? 'Failed to save')
       } else {
-        const res = await window.electron.account.create({ name: name.trim(), description: description || undefined })
+        const res = await window.electron.account.create({ name: name.trim(), description: description || undefined, replizId: replizId.trim() || undefined })
         if (!res.success) throw new Error(res.error ?? 'Failed to create')
       }
       onSaved()
@@ -104,31 +111,43 @@ export function AccountEditor({ account, onClose, onSaved }: AccountEditorProps)
       <div className="w-full max-w-md space-y-4 rounded-xl border border-zinc-800 bg-zinc-900 p-5 shadow-xl">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-zinc-200">{isEdit ? 'Edit Account' : 'New Account'}</h3>
-          <button onClick={onClose} className="rounded p-1 text-zinc-500 hover:text-zinc-200" aria-label="Close">
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="rounded p-1 text-zinc-500 hover:text-zinc-200">
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-3">
           <div>
             <label className="mb-1 block text-xs text-zinc-500">Name *</label>
-            <input
+            <Input
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="e.g., JacksonLab"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
             />
           </div>
 
           <div>
             <label className="mb-1 block text-xs text-zinc-500">Description</label>
-            <textarea
+            <Textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={3}
               placeholder="Short brand description used via {{account.description}}"
-              className="w-full resize-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
             />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs text-zinc-500">Repliz Account ID</label>
+            <Input
+              value={replizId}
+              onChange={e => setReplizId(e.target.value)}
+              placeholder="e.g., 680affa5ce12f2f72916f67e"
+              spellCheck={false}
+              className="font-mono text-sm"
+            />
+            <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">
+              Optional. Repliz GET /public/account/{'{accountId}'}. Only stored locally; never sent anywhere by this app.
+            </p>
           </div>
 
           {/* Logo drop zone */}
@@ -181,16 +200,10 @@ export function AccountEditor({ account, onClose, onSaved }: AccountEditorProps)
         {error && <p className="text-xs text-red-400">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200">
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-          >
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving}>
             {isEdit ? 'Save changes' : 'Create account'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

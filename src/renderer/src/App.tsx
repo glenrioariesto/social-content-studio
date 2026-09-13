@@ -13,6 +13,7 @@ import { CalendarPage } from './pages/CalendarPage'
 import { ResourcesPage } from './pages/ResourcesPage'
 import { BatchRenderPage } from './pages/BatchRenderPage'
 import { LogsPage } from './pages/LogsPage'
+import { AgentStudioPage } from './pages/AgentStudioPage'
 
 export function App() {
   return (
@@ -33,6 +34,7 @@ export function App() {
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/resources" element={<ResourcesPage />} />
             <Route path="/batch" element={<BatchRenderPage />} />
+            <Route path="/agent" element={<AgentStudioPage />} />
             <Route path="/logs" element={<LogsPage />} />
           </Routes>
         </main>

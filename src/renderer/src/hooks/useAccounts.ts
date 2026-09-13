@@ -1,33 +1,21 @@
-import { useEffect, useCallback, useState } from 'react'
-import { useAppStore } from '@/stores/app-store'
+import { useDocument } from './useDocument'
+import { validEntries } from '@/lib/entries'
 import type { Account } from '@shared/index'
 import type { LoadedEntry } from '@shared/loaded-entry'
 
-function validEntries<T>(entries: LoadedEntry<T>[] | undefined): T[] {
-  if (!entries) return []
-  return entries.filter((e): e is Extract<LoadedEntry<T>, { kind: 'valid' }> => e.kind === 'valid').map(e => e.data)
-}
-
 export function useAccounts() {
-  const { accounts, setAccounts } = useAppStore()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const loadAccounts = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const loaded = useDocument(async () => {
     const result = await window.electron.workspace.getAccounts()
-    if (result.success && result.data) {
-      setAccounts(validEntries<Account>(result.data as LoadedEntry<Account>[]))
-    } else {
-      setError(result.error ?? 'Failed to load accounts')
+    if (!result.success) {
+      throw new Error(result.error ?? 'Failed to load accounts')
     }
-    setLoading(false)
-  }, [setAccounts])
+    return validEntries<Account>((result.data ?? []) as LoadedEntry<Account>[])
+  })
 
-  useEffect(() => {
-    loadAccounts()
-  }, [loadAccounts])
-
-  return { accounts, loading, error, reload: loadAccounts }
+  return {
+    accounts: loaded.data ?? [],
+    loading: loaded.loading,
+    error: loaded.error,
+    reload: loaded.reload
+  }
 }

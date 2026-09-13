@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileVideo, Copy, FolderOpen, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileVideo, Trash2 } from 'lucide-react'
 import { StatusBadge } from '@/components/StatusBadge'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useErrorToast } from '@/hooks/useErrorToast'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { Badge } from '@/components/ui/Badge'
+import { LoadingState } from '@/components/ui/LoadingState'
+import { EmptyState } from '@/components/ui/EmptyState'
 import type { Content, Account } from '@shared/index'
 
 export function ContentDetailPage() {
@@ -42,21 +47,16 @@ export function ContentDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-zinc-500">Loading...</p>
-      </div>
-    )
+    return <LoadingState label="Loading..." />
   }
 
   if (!content) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-sm text-zinc-500">Content not found</p>
-        <button onClick={() => navigate('/content')} className="mt-3 text-sm text-indigo-400 hover:text-indigo-300">
-          Back to content
-        </button>
-      </div>
+      <EmptyState
+        icon={<FileVideo className="h-10 w-10" />}
+        title="Content not found"
+        action={<Button variant="outline" onClick={() => navigate('/content')}>Back to content</Button>}
+      />
     )
   }
 
@@ -96,7 +96,7 @@ export function ContentDetailPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-3">
+          <Card className="p-4 space-y-3">
             <h3 className="text-sm font-semibold text-zinc-300">Details</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
@@ -116,32 +116,30 @@ export function ContentDetailPage() {
                 <p className="text-zinc-300">{new Date(content.updatedAt).toLocaleDateString()}</p>
               </div>
             </div>
-          </div>
+          </Card>
 
           {content.caption && (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+            <Card className="p-4">
               <h3 className="mb-2 text-sm font-semibold text-zinc-300">Caption</h3>
               <p className="text-sm text-zinc-400 whitespace-pre-wrap">{content.caption}</p>
               {content.hashtags && content.hashtags.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {content.hashtags.map(tag => (
-                    <span key={tag} className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-                      {tag}
-                    </span>
+                    <Badge key={tag} className="px-2 py-0.5 text-xs">{tag}</Badge>
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
           )}
 
           <div className="flex gap-2">
-            <button
+            <Button
+              variant="danger"
               onClick={handleDelete}
-              className="flex items-center gap-1 rounded-lg border border-red-800/50 bg-red-950/30 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-950/50"
             >
               <Trash2 className="h-4 w-4" />
               Delete
-            </button>
+            </Button>
           </div>
         </div>
       </div>

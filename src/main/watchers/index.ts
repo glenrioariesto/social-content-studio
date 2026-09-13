@@ -1,11 +1,12 @@
 import { BrowserWindow } from 'electron'
 import { watch, type FSWatcher } from 'chokidar'
 import { join } from 'path'
+import { getWorkspaceRoot } from '@main/services/workspace-root'
 
 let watcher: FSWatcher | null = null
 
 export function initWatcherService(mainWindow: BrowserWindow): void {
-  const workspacePath = join(process.cwd(), 'workspace')
+  const workspacePath = getWorkspaceRoot()
 
   watcher = watch(
     [
@@ -50,4 +51,11 @@ export function initWatcherService(mainWindow: BrowserWindow): void {
     .on('unlink', (path) => sendEvent('file.deleted', path))
     .on('addDir', (path) => sendEvent('dir.created', path))
     .on('unlinkDir', (path) => sendEvent('dir.deleted', path))
+}
+
+export function disposeWatcherService(): void {
+  if (watcher) {
+    void watcher.close()
+    watcher = null
+  }
 }

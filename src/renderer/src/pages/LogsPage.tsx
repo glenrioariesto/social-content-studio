@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { FileText, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { LoadingState } from '@/components/ui/LoadingState'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 interface LogEntry {
   timestamp: string
@@ -20,8 +24,8 @@ export function LogsPage() {
     const result = await window.electron.fs.readdir('workspace/config/logs')
     if (result.success && result.data) {
       const files = result.data
-        .filter((f: any) => f.isFile && f.name.endsWith('.log'))
-        .map((f: any) => f.name)
+        .filter(f => f.isFile && f.name.endsWith('.log'))
+        .map(f => f.name)
         .sort()
         .reverse()
       setLogFiles(files)
@@ -73,13 +77,13 @@ export function LogsPage() {
           <h1 className="text-2xl font-bold">Logs</h1>
           <p className="mt-1 text-sm text-zinc-400">Application error and activity logs</p>
         </div>
-        <button
+        <Button
+          variant="outline"
           onClick={() => { loadLogFiles(); if (selectedFile) loadLogContent(selectedFile) }}
-          className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
         >
           <RefreshCw className="h-4 w-4" />
           Refresh
-        </button>
+        </Button>
       </div>
 
       <div className="grid grid-cols-[220px_1fr] gap-4">
@@ -103,16 +107,11 @@ export function LogsPage() {
           )}
         </div>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50">
+        <Card>
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <p className="text-sm text-zinc-500">Loading...</p>
-            </div>
+            <LoadingState label="Loading..." />
           ) : entries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <FileText className="mb-3 h-8 w-8 text-zinc-700" />
-              <p className="text-sm text-zinc-500">No log entries</p>
-            </div>
+            <EmptyState icon={<FileText className="h-8 w-8" />} title="No log entries" />
           ) : (
             <div className="max-h-[600px] divide-y divide-zinc-800/50 overflow-auto">
               {entries.map((entry, i) => (
@@ -140,7 +139,7 @@ export function LogsPage() {
               ))}
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   )

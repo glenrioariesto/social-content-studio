@@ -1,6 +1,6 @@
-import { CONTENT_STATUS_FLOW } from '../../../packages/shared/src/index'
-import type { ContentStatus } from '../../../packages/shared/src/index'
-import { createAppError } from '../../../packages/shared/src/errors'
+import { CONTENT_STATUS_FLOW } from '@shared/index'
+import type { ContentStatus } from '@shared/index'
+import { createAppError } from '@shared/errors'
 
 /**
  * Enforces the single content status flow. Any transition not listed in

@@ -77,6 +77,12 @@ export function AccountCard({ account, contentCount = 0, isActive, onClick, onEd
         <p className="mb-3 line-clamp-2 text-xs text-zinc-400">{account.description}</p>
       )}
 
+      {account.replizId && (
+        <p className="mb-3 truncate font-mono text-[10px] text-zinc-500" title={account.replizId}>
+          Repliz: {account.replizId}
+        </p>
+      )}
+
       <div className="mb-3 flex flex-wrap gap-1.5">
         {(account.workflows || []).map(w => (
           <span key={w} className="rounded-md bg-zinc-800/80 px-2 py-0.5 text-[10px] text-zinc-400">

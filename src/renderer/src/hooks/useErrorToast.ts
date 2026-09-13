@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { onError, type ErrorInfo } from '../lib/error-logger'
+import { onError, type ErrorInfo } from '@/lib/error-logger'
 
 interface Toast {
   id: number

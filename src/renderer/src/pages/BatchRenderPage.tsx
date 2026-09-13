@@ -1,7 +1,11 @@
 import { useState, useCallback } from 'react'
-import { Upload, FileText, Play, Download, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { Upload, FileText, Play, Download, CheckCircle2 } from 'lucide-react'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useErrorToast } from '@/hooks/useErrorToast'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { Input, Select } from '@/components/ui/Field'
+import { LoadingState } from '@/components/ui/LoadingState'
 
 interface ParsedRow {
   title: string
@@ -107,46 +111,44 @@ export function BatchRenderPage() {
           <Upload className="mb-4 h-10 w-10 text-zinc-600" />
           <p className="mb-1 text-sm text-zinc-400">Upload a CSV file</p>
           <p className="mb-4 text-xs text-zinc-600">Headers: title, caption, hashtags, resourcePath, templateId</p>
-          <button onClick={handleUpload} className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-500">
-            Choose CSV File
-          </button>
+          <Button onClick={handleUpload}>Choose CSV File</Button>
         </div>
       )}
 
       {step === 'preview' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-            <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5 text-zinc-400" />
-              <div>
-                <p className="text-sm font-medium">{csvFileName}</p>
-                <p className="text-xs text-zinc-500">{parsedRows.length} rows found</p>
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-zinc-400" />
+                <div>
+                  <p className="text-sm font-medium">{csvFileName}</p>
+                  <p className="text-xs text-zinc-500">{parsedRows.length} rows found</p>
+                </div>
               </div>
+              <button onClick={() => setStep('upload')} className="text-xs text-zinc-500 hover:text-zinc-300">Change file</button>
             </div>
-            <button onClick={() => setStep('upload')} className="text-xs text-zinc-500 hover:text-zinc-300">Change file</button>
-          </div>
+          </Card>
 
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="mb-1 block text-xs font-medium text-zinc-400">Account</label>
-              <select
+              <Select
                 value={selectedAccountId}
                 onChange={e => setSelectedAccountId(e.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
               >
                 <option value="">Select account...</option>
                 {accounts.map(a => (
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="flex-1">
               <label className="mb-1 block text-xs font-medium text-zinc-400">Template (optional)</label>
-              <input
+              <Input
                 value={selectedTemplateId}
                 onChange={e => setSelectedTemplateId(e.target.value)}
                 placeholder="Template ID"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500 placeholder:text-zinc-600"
               />
             </div>
           </div>
@@ -178,27 +180,22 @@ export function BatchRenderPage() {
           </div>
 
           <div className="flex justify-end gap-2">
-            <button onClick={() => setStep('upload')} className="rounded-lg border border-zinc-800 px-4 py-2 text-sm text-zinc-400 hover:bg-zinc-800">
-              Cancel
-            </button>
-            <button onClick={handleRun} disabled={!selectedAccountId} className="flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
+            <Button variant="outline" onClick={() => setStep('upload')}>Cancel</Button>
+            <Button onClick={handleRun} disabled={!selectedAccountId}>
               <Play className="h-4 w-4" />
               Create & Enqueue ({parsedRows.length})
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {step === 'running' && (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="mb-4 h-10 w-10 animate-spin text-indigo-500" />
-          <p className="text-sm text-zinc-400">Creating content items...</p>
-        </div>
+        <LoadingState label="Creating content items..." />
       )}
 
       {step === 'done' && (
         <div className="space-y-4">
-          <div className="flex flex-col items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/50 py-12">
+          <Card className="flex flex-col items-center justify-center py-12">
             <CheckCircle2 className="mb-4 h-12 w-12 text-emerald-500" />
             <h2 className="text-lg font-semibold">Batch Complete</h2>
             <p className="mt-2 text-sm text-zinc-400">
@@ -206,16 +203,16 @@ export function BatchRenderPage() {
               {' • '}
               Queued <span className="font-medium text-zinc-200">{progress.queued}</span> for rendering
             </p>
-          </div>
+          </Card>
 
           <div className="flex justify-center gap-2">
-            <button onClick={() => { setStep('upload'); setParsedRows([]); setCreatedIds([]) }} className="rounded-lg border border-zinc-800 px-4 py-2 text-sm text-zinc-400 hover:bg-zinc-800">
+            <Button variant="outline" onClick={() => { setStep('upload'); setParsedRows([]); setCreatedIds([]) }}>
               New Batch
-            </button>
-            <button onClick={handleExportCsv} className="flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700">
+            </Button>
+            <Button variant="secondary" onClick={handleExportCsv}>
               <Download className="h-4 w-4" />
               Export All Content CSV
-            </button>
+            </Button>
           </div>
         </div>
       )}

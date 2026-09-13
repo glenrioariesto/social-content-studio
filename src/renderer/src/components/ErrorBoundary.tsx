@@ -1,5 +1,5 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react'
-import { logRendererError, type ErrorInfo as AppErrorInfo } from '../lib/error-logger'
+import { logRendererError, type ErrorInfo as AppErrorInfo } from '@/lib/error-logger'
 
 interface Props {
   children: ReactNode

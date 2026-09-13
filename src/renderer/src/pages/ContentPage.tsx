@@ -2,10 +2,14 @@ import { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useContents } from '@/hooks/useContents'
 import { useAccounts } from '@/hooks/useAccounts'
-import { useAppStore } from '@/stores/app-store'
+import { useAccountStore } from '@/stores/app-store'
 import { ContentCard } from '@/components/ContentCard'
 import { QuarantineCard } from '@/components/QuarantineCard'
 import { ContentCreationWizard } from '@/components/ContentCreationWizard'
+import { Button } from '@/components/ui/Button'
+import { LoadingState } from '@/components/ui/LoadingState'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { EmptyState } from '@/components/ui/EmptyState'
 import type { ContentStatus } from '@shared/index'
 
 const STATUS_FILTERS: Array<{ label: string; value: ContentStatus | 'all' }> = [
@@ -22,8 +26,8 @@ const STATUS_FILTERS: Array<{ label: string; value: ContentStatus | 'all' }> = [
 export function ContentPage() {
   const [statusFilter, setStatusFilter] = useState<ContentStatus | 'all'>('all')
   const [showWizard, setShowWizard] = useState(false)
-  const { activeAccountId } = useAppStore()
-  const { contents, loading, error, quarantined } = useContents(
+  const { activeAccountId } = useAccountStore()
+  const { contents, loading, error, quarantined, reload } = useContents(
     activeAccountId ? { accountId: activeAccountId } : undefined
   )
   const { accounts } = useAccounts()
@@ -46,15 +50,12 @@ export function ContentPage() {
             }
           </p>
         </div>
-        <button
-          onClick={() => setShowWizard(true)}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
-        >
-          + New Content
-        </button>
+        <Button onClick={() => setShowWizard(true)}>+ New Content</Button>
       </div>
 
-      {showWizard && <ContentCreationWizard onClose={() => setShowWizard(false)} />}
+      {showWizard && (
+        <ContentCreationWizard onClose={() => { setShowWizard(false); void reload() }} />
+      )}
 
       <div className="flex gap-2">
         {STATUS_FILTERS.map(filter => (
@@ -73,21 +74,13 @@ export function ContentPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <p className="text-sm text-zinc-500">Loading content...</p>
-        </div>
+        <LoadingState label="Loading content..." />
       ) : error ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <AlertTriangle className="h-8 w-8 text-red-400" />
-          <p className="mt-2 text-sm text-red-300">Failed to load content</p>
-          <p className="text-xs text-zinc-500">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-3 text-sm text-indigo-400 hover:text-indigo-300"
-          >
-            Retry
-          </button>
-        </div>
+        <ErrorState
+          title="Failed to load content"
+          message={error}
+          onRetry={() => window.location.reload()}
+        />
       ) : (
         <>
           {quarantined.length > 0 && (
@@ -105,13 +98,11 @@ export function ContentPage() {
           )}
 
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <p className="text-sm text-zinc-500">
-                {contents.length === 0 && quarantined.length === 0
-                  ? 'No content yet. Create your first content!'
-                  : 'No content matches this filter'}
-              </p>
-            </div>
+            <EmptyState title={
+              contents.length === 0 && quarantined.length === 0
+                ? 'No content yet. Create your first content!'
+                : 'No content matches this filter'
+            } />
           ) : (
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filtered.map(content => (

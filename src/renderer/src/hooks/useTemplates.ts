@@ -1,26 +1,17 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
+import { useDocument } from './useDocument'
+import { validEntries } from '@/lib/entries'
 import type { TemplateDefinition } from '@shared/template'
 import type { LoadedEntry } from '@shared/loaded-entry'
 
-function validEntries<T>(entries: LoadedEntry<T>[] | undefined): T[] {
-  if (!entries) return []
-  return entries.filter((e): e is Extract<LoadedEntry<T>, { kind: 'valid' }> => e.kind === 'valid').map(e => e.data)
-}
-
 export function useTemplates() {
-  const [templates, setTemplates] = useState<TemplateDefinition[]>([])
-  const [loading, setLoading] = useState(false)
-
-  const loadTemplates = useCallback(async () => {
-    setLoading(true)
+  const loaded = useDocument(async () => {
     const result = await window.electron.workspace.getTemplates()
-    if (result.success && result.data) {
-      setTemplates(validEntries<TemplateDefinition>(result.data as LoadedEntry<TemplateDefinition>[]))
+    if (!result.success) {
+      throw new Error(result.error ?? 'Failed to load templates')
     }
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { loadTemplates() }, [loadTemplates])
+    return validEntries<TemplateDefinition>((result.data ?? []) as LoadedEntry<TemplateDefinition>[])
+  })
 
   const createTemplate = useCallback(async (template: TemplateDefinition) => {
     const dir = `workspace/templates/${template.id}`
@@ -33,16 +24,23 @@ export function useTemplates() {
       await window.electron.fs.writeFile(`${dir}/index.html`, DEFAULT_HTML(template))
       await window.electron.fs.writeFile(`${dir}/style.css`, DEFAULT_CSS())
     }
-    await loadTemplates()
+    await loaded.reload()
     return template
-  }, [loadTemplates])
+  }, [loaded.reload])
 
   const deleteTemplate = useCallback(async (id: string) => {
     await window.electron.fs.rm(`workspace/templates/${id}`)
-    await loadTemplates()
-  }, [loadTemplates])
+    await loaded.reload()
+  }, [loaded.reload])
 
-  return { templates, loading, reload: loadTemplates, createTemplate, deleteTemplate }
+  return {
+    templates: loaded.data ?? [],
+    loading: loaded.loading,
+    error: loaded.error,
+    reload: loaded.reload,
+    createTemplate,
+    deleteTemplate
+  }
 }
 
 function DEFAULT_HTML(t: TemplateDefinition): string {

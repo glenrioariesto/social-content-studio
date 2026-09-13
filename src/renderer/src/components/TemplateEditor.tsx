@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Editor from '@monaco-editor/react'
 import { LivePreview } from './LivePreview'
 import { useTemplateEditor } from '@/hooks/useTemplateEditor'
+import { Button } from '@/components/ui/Button'
 import { Save, RotateCcw, Eye, Code } from 'lucide-react'
 
 interface TemplateEditorProps {
@@ -26,7 +27,7 @@ export function TemplateEditor({ templateId, onClose }: TemplateEditorProps) {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="text-xs text-zinc-400 hover:text-zinc-200">← Back</button>
+          <Button variant="ghost" size="sm" onClick={onClose} className="text-xs">← Back</Button>
           <h2 className="text-sm font-semibold">{templateId}</h2>
           <div className="flex gap-1">
             {(['html', 'css', 'json'] as const).map(f => (
@@ -43,24 +44,26 @@ export function TemplateEditor({ templateId, onClose }: TemplateEditorProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShowPreview(p => !p)}
-            className="flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+            className="px-2 py-1 text-xs"
           >
             {showPreview ? <Eye className="h-3 w-3" /> : <Code className="h-3 w-3" />}
             {showPreview ? 'Preview' : 'Code'}
-          </button>
-          <button onClick={reload} className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">
+          </Button>
+          <Button variant="ghost" size="icon" onClick={reload} className="h-7 w-7">
             <RotateCcw className="h-3.5 w-3.5" />
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={save}
             disabled={saved}
-            className="flex items-center gap-1 rounded bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
+            className="px-3 py-1 text-xs"
           >
             <Save className="h-3 w-3" />
             {saved ? 'Saved' : 'Save'}
-          </button>
+          </Button>
         </div>
       </div>
 
