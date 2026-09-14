@@ -5,4 +5,8 @@ src/renderer/public/vs/
 .env
 *.log
 workspace/config/logs/
+workspace/contents/
+workspace/renders/
+*.tmp
+tw.txt
 bun.lockb
