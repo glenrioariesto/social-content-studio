@@ -266,9 +266,9 @@
 - **Decisions Made (binding):**
   - `resource:download` timeout settle covered at spawn-ENOENT level (10-min hard timeout path not unit-tested; observed via code + ENOENT test) — documented as manual-observation-only gap for TASK-207 (2 overlapping renders in log at `maxConcurrentRender=2` needs a running app).
 - **Next Action / Pending:**
-  - Plan is closed. Operator-side housekeeping backlog (carried from earlier checkpoints, still open): commit `docs/` + plan changes; track `.agents/` in git; customize `[Your Application Name]` placeholder in AGENTS.md; delete `AGENTS.md.bak`; run prepared `gh issue create` commands (GH-001..GH-007).
-  - No further SDLC phase mandated unless user opens a new request.
+  - Plan is closed. Housekeeping backlog CLOSED this session: commit `ede21d1` landed (45 files, +2302/-377, security remediation + plan docs), `.agents/` tracked (38 files), `.agents/AGENTS.md` placeholder customized to "Social Content Studio", `AGENTS.md.bak` confirmed absent, GitHub issues GH-001..GH-007 created (#1-#7, title from PRD §10).
+  - Still open (non-blocking): `tw.txt` debug artifact + `workspace/{contents,renders, accounts}` runtime data untracked by design (excluded from commits); branch `main` is 2 commits ahead of `origin/main` — push pending. Commit needs `git push` (endeavor NOT yet pushed as of checkpoint time).
 
-<!-- checkpoint-tail: plan-refactor-code-review-v1.0 closed 2026-09-14 — all 4 phases verified (117 tests/0 fail, verify+build green), zip-slip + download-settle + repliz-honesty tests added; next work is operator housekeeping. -->
+<!-- checkpoint-tail: plan-refactor-code-review-v1.0 closed 2026-09-14 — all 4 phases verified (117 tests/0 fail, verify+build green), zip-slip + download-settle + repliz-honesty tests added; housekeeping done (commit ede21d1, .agents tracked, issues #1-#7 shipped); remaining = git push. -->
 
 ---
