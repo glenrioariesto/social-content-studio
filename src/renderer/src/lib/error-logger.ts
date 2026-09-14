@@ -42,25 +42,3 @@ export function createRendererError(
   }
   return info
 }
-
-export function handleIPCCall<T>(
-  promise: Promise<{ success: boolean; data?: T; error?: string }>,
-  onErrorCallback?: (msg: string) => void
-): Promise<T | null> {
-  return promise
-    .then((result) => {
-      if (result.success) {
-        return result.data ?? null
-      }
-      const msg = result.error || 'Operation failed'
-      onErrorCallback?.(msg)
-      logRendererError(createRendererError('IPC_HANDLER_ERROR', msg))
-      return null
-    })
-    .catch((err) => {
-      const msg = err instanceof Error ? err.message : String(err)
-      onErrorCallback?.(msg)
-      logRendererError(createRendererError('IPC_HANDLER_ERROR', msg, err))
-      return null
-    })
-}

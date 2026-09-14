@@ -1,4 +1,5 @@
 import { safeIpcMain } from './safe-handler'
+import { pickSourceFile } from './native-picker'
 import { mkdir, writeFile, readdir, readFile, unlink, copyFile } from 'fs/promises'
 import { join } from 'path'
 import { spawn } from 'child_process'
@@ -6,7 +7,7 @@ import { logInfo, logError } from '@main/errors'
 import { createAppError, type IPCResult } from '@shared/errors'
 import { getWorkspaceRoot } from '@main/services/workspace-root'
 import { assertInsideWorkspace } from '@main/services/path-guard'
-import { sanitizeFileName, parseResourceMeta } from '@main/services/resource-utils'
+import { sanitizeFileName, parseResourceMeta, isAllowedDownloadUrl } from '@main/services/resource-utils'
 import type { Resource } from '@shared/resource'
 
 /** Absolute resources directory, guaranteed to live inside the workspace root. */
@@ -51,18 +52,35 @@ export function initResourceIpc(): void {
     if (typeof url !== 'string' || url.trim() === '') {
       throw new Error('resource:download requires a non-empty url')
     }
+    const trimmedUrl = url.trim()
+    if (!isAllowedDownloadUrl(trimmedUrl)) {
+      throw createAppError('RESOURCE_INVALID_URL', 'Only http(s) URLs are allowed', 'ipc', { url: trimmedUrl })
+    }
     const dir = resourcesDir()
     await mkdir(dir, { recursive: true })
     const name = sanitizeFileName(fileName ?? '', `resource-${Date.now()}.mp4`)
     const outputPath = join(dir, name)
 
-    logInfo(`resource:download start url=${url} output=${outputPath}`)
+    logInfo(`resource:download start url=${trimmedUrl} output=${outputPath}`)
 
     return await new Promise<IPCResult<Resource>>((resolve) => {
       let stderr = ''
-      const proc = spawn('yt-dlp', ['-f', 'best', '-o', outputPath, url], { stdio: 'pipe' })
+      const proc = spawn('yt-dlp', ['-f', 'best', '-o', outputPath, trimmedUrl], { stdio: 'pipe' })
+      const timer = setTimeout(() => {
+        proc.kill()
+        const message = 'yt-dlp download timed out'
+        logError(createAppError('RESOURCE_DOWNLOAD_FAILED', `resource:download failed: ${message}`, 'ipc'))
+        resolve({ success: false, error: message, errorCode: 'RESOURCE_DOWNLOAD_FAILED' })
+      }, 10 * 60 * 1000)
       proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
+      proc.on('error', (err) => {
+        clearTimeout(timer)
+        const message = `yt-dlp failed to start: ${err.message}`
+        logError(createAppError('RESOURCE_DOWNLOAD_FAILED', `resource:download failed: ${message}`, 'ipc'))
+        resolve({ success: false, error: message, errorCode: 'RESOURCE_DOWNLOAD_FAILED' })
+      })
       proc.on('close', async (code) => {
+        clearTimeout(timer)
         if (code !== 0) {
           const message = stderr.trim() || `yt-dlp exited with code ${code}`
           logError(createAppError('RESOURCE_DOWNLOAD_FAILED', `resource:download failed: ${message}`, 'ipc'))
@@ -89,13 +107,15 @@ export function initResourceIpc(): void {
     })
   }, 'FS_WRITE_ERROR')
 
-  safeIpcMain('resource:upload', async (_event, sourcePath: string, fileName: string) => {
-    if (typeof sourcePath !== 'string' || typeof fileName !== 'string' || !sourcePath || !fileName) {
-      throw new Error('resource:upload requires sourcePath and fileName')
-    }
+  safeIpcMain('resource:upload', async (_event, fileName?: string) => {
     const dir = resourcesDir()
+    const sourcePath = await pickSourceFile([{ name: 'Media', extensions: ['mp4', 'webm', 'mov', 'mkv', 'avi', 'jpg', 'jpeg', 'png', 'gif', 'webp'] }])
+    if (!sourcePath) {
+      return { success: false, error: 'No file selected' }
+    }
     await mkdir(dir, { recursive: true })
-    const name = sanitizeFileName(fileName, `resource-${Date.now()}`)
+    const sourceName = typeof fileName === 'string' && fileName.trim() ? fileName : sourcePath.split(/[\\/]/).pop() ?? ''
+    const name = sanitizeFileName(sourceName, `resource-${Date.now()}`)
     const outputPath = join(dir, name)
     await copyFile(sourcePath, outputPath)
     const meta: Resource = {

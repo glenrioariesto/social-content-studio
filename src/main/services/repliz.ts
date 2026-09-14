@@ -6,9 +6,12 @@ import type { ErrorCode } from '@shared/errors'
 import type { ReplizAccountVerifyResult, ReplizCredentialsStatus, Account } from '@shared/index'
 import { validateAccount } from '@shared/validators'
 import { atomicWriteJson } from './persistence'
-import { logInfo } from '@main/errors'
+import { logInfo, logWarning } from '@main/errors'
+import { getWorkspaceRoot } from './workspace-root'
 
-const CRED_FILE = join(process.cwd(), 'workspace', 'config', 'repliz-credentials.enc.json')
+function credFile(): string {
+  return join(getWorkspaceRoot(), 'config', 'repliz-credentials.enc.json')
+}
 
 interface StoredReplizCredentials {
   accessKey: string
@@ -35,24 +38,24 @@ function maskKey(key: string): string {
 }
 
 /** Bundles credentials from the encrypted vault without exposing them to renderer. */
-async function readCredentials(): Promise<StoredReplizCredentials | null> {
+async function readCredentials(): Promise<{ creds: StoredReplizCredentials; encrypted: boolean } | null> {
   try {
-    const raw = await readFile(CRED_FILE, 'utf-8')
+    const raw = await readFile(credFile(), 'utf-8')
     const env = JSON.parse(raw) as StoredReplizCredentialsEnvelope
     if (env.version !== 1) return null
     if (env.encrypted) {
       if (!safeStorage.isEncryptionAvailable()) return null
       const dec = safeStorage.decryptString(Buffer.from(env.payload, 'base64'))
-      return JSON.parse(dec) as StoredReplizCredentials
+      return { creds: JSON.parse(dec) as StoredReplizCredentials, encrypted: true }
     }
-    return JSON.parse(Buffer.from(env.payload, 'base64').toString('utf-8')) as StoredReplizCredentials
+    return { creds: JSON.parse(Buffer.from(env.payload, 'base64').toString('utf-8')) as StoredReplizCredentials, encrypted: false }
   } catch {
     return null
   }
 }
 
 export async function saveReplizCredentials(accessKey: string, secretKey: string): Promise<ReplizCredentialsStatus> {
-  await mkdir(join(process.cwd(), 'workspace', 'config'), { recursive: true })
+  await mkdir(join(getWorkspaceRoot(), 'config'), { recursive: true })
   const credentials: StoredReplizCredentials = { accessKey, secretKey }
   const payload = Buffer.from(JSON.stringify(credentials), 'utf-8')
   let encrypted = false
@@ -64,15 +67,19 @@ export async function saveReplizCredentials(accessKey: string, secretKey: string
     payloadB64 = payload.toString('base64')
   }
   const envelope: StoredReplizCredentialsEnvelope = { version: 1, encrypted, payload: payloadB64 }
-  await atomicWriteJson(CRED_FILE, envelope)
-  logInfo(`Repliz credentials saved (encrypted=${encrypted})`)
+  await atomicWriteJson(credFile(), envelope)
+  if (!encrypted) {
+    logWarning(createAppError('FS_WRITE_ERROR', 'safeStorage unavailable — repliz credentials stored WITHOUT encryption (reversible base64)', 'main'))
+  } else {
+    logInfo('Repliz credentials saved (encrypted via safeStorage)')
+  }
   return { configured: true, encrypted, accessKeyMasked: maskKey(accessKey) }
 }
 
 export async function getReplizCredentialsStatus(): Promise<ReplizCredentialsStatus> {
-  const credentials = await readCredentials()
-  if (credentials && credentials.accessKey) {
-    return { configured: true, encrypted: true, accessKeyMasked: maskKey(credentials.accessKey) }
+  const loaded = await readCredentials()
+  if (loaded && loaded.creds.accessKey) {
+    return { configured: true, encrypted: loaded.encrypted, accessKeyMasked: maskKey(loaded.creds.accessKey) }
   }
   return { configured: false, encrypted: safeStorage.isEncryptionAvailable() }
 }
@@ -83,12 +90,13 @@ export async function getReplizCredentialsStatus(): Promise<ReplizCredentialsSta
  * to the renderer; only the sanitized result does.
  */
 export async function verifyReplizAccount(replizId: string): Promise<ReplizAccountVerifyResult> {
-  const credentials = await readCredentials()
-  if (!credentials || !credentials.accessKey || !credentials.secretKey) {
+  const loaded = await readCredentials()
+  if (!loaded || !loaded.creds.accessKey || !loaded.creds.secretKey) {
     throw new ReplizError('REPLIZ_NOT_CONFIGURED', 'Repliz credentials are not configured')
   }
+  const { creds } = loaded
 
-  const basic = Buffer.from(`${credentials.accessKey}:${credentials.secretKey}`, 'utf-8').toString('base64')
+  const basic = Buffer.from(`${creds.accessKey}:${creds.secretKey}`, 'utf-8').toString('base64')
 
   let response: Response
   try {

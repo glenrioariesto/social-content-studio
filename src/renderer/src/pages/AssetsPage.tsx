@@ -3,6 +3,7 @@ import { FolderOpen, Image, Music, Film, Type, Trash2 } from 'lucide-react'
 import { useErrorToast } from '@/hooks/useErrorToast'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 
@@ -24,6 +25,7 @@ export function AssetsPage() {
   const [assets, setAssets] = useState<AssetList>({ images: [], audio: [], video: [], fonts: [] })
   const [activeTab, setActiveTab] = useState<keyof AssetList>('images')
   const [loading, setLoading] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<{ folder: string; name: string } | null>(null)
   const { showSuccess } = useErrorToast()
 
   const loadAssets = useCallback(async () => {
@@ -62,10 +64,12 @@ export function AssetsPage() {
     input.click()
   }
 
-  const handleDelete = async (folder: string, fileName: string) => {
-    await window.electron.fs.rm(`workspace/assets/${folder}/${fileName}`)
+  const handleDelete = async () => {
+    if (!pendingDelete) return
+    await window.electron.fs.rm(`workspace/assets/${pendingDelete.folder}/${pendingDelete.name}`)
     await loadAssets()
-    showSuccess(`Deleted ${fileName}`)
+    showSuccess(`Deleted ${pendingDelete.name}`)
+    setPendingDelete(null)
   }
 
   const currentAssets = assets[activeTab] || []
@@ -124,7 +128,7 @@ export function AssetsPage() {
               <div className="flex items-center justify-between">
                 <p className="truncate text-xs text-zinc-400">{name}</p>
                 <button
-                  onClick={() => handleDelete(activeTab, name)}
+                  onClick={() => setPendingDelete({ folder: activeTab, name })}
                   className="rounded p-1 text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-400"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -134,6 +138,15 @@ export function AssetsPage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete asset"
+        description={`Delete "${pendingDelete?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

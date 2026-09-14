@@ -1,5 +1,6 @@
 import { safeIpcMain } from './safe-handler'
 import { assertSafeId, assertReplizId } from './ipc-handler'
+import { pickSourceFile } from './native-picker'
 import { readFile, readdir, mkdir, copyFile, stat } from 'fs/promises'
 import { join } from 'path'
 import { logInfo } from '@main/errors'
@@ -97,9 +98,13 @@ export function initAccountsIpc(): void {
     return ok(merged)
   }, 'FS_WRITE_ERROR')
 
-  safeIpcMain('account:set-logo', async (_event, id: string, sourcePath: string) => {
+  safeIpcMain('account:set-logo', async (_event, id: string) => {
     const root = ws()
     assertSafeId(id, 'account:set-logo')
+    const sourcePath = await pickSourceFile([{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'svg'] }])
+    if (!sourcePath) {
+      return fail('FS_VALIDATION_ERROR', 'No file selected')
+    }
     // Validate BEFORE any filesystem work (Spec §4).
     const ext = sourcePath.slice(sourcePath.lastIndexOf('.')).toLowerCase()
     if (!ALLOWED_LOGO_EXT.has(ext)) {

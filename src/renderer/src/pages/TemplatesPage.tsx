@@ -4,6 +4,7 @@ import { useAccounts } from '@/hooks/useAccounts'
 import { TemplateEditor } from '@/components/TemplateEditor'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/Field'
 import { Select } from '@/components/ui/Field'
 import { LoadingState } from '@/components/ui/LoadingState'
@@ -24,6 +25,7 @@ export function TemplatesPage() {
   const { accounts } = useAccounts()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState<TemplateType>('html-template')
   const [newAccount, setNewAccount] = useState('')
@@ -119,7 +121,7 @@ export function TemplatesPage() {
                   <p className="text-xs text-zinc-500">{template.type}</p>
                 </div>
                 <Button
-                  onClick={() => deleteTemplate(template.id)}
+                  onClick={() => setPendingDelete(template.id)}
                   className="rounded p-1 text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-transparent hover:text-red-400"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -143,6 +145,18 @@ export function TemplatesPage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete template"
+        description={`Delete "${templates.find(t => t.id === pendingDelete)?.name ?? 'this template'}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          if (pendingDelete) await deleteTemplate(pendingDelete)
+          setPendingDelete(null)
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

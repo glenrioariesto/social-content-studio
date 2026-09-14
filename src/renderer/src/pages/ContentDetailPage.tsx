@@ -7,6 +7,7 @@ import { useErrorToast } from '@/hooks/useErrorToast'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import type { Content, Account } from '@shared/index'
@@ -16,6 +17,8 @@ export function ContentDetailPage() {
   const navigate = useNavigate()
   const [content, setContent] = useState<Content | null>(null)
   const [loading, setLoading] = useState(true)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const { accounts } = useAccounts()
   const { showSuccess, showError } = useErrorToast()
 
@@ -35,9 +38,15 @@ export function ContentDetailPage() {
   const handleDelete = async () => {
     if (!id) return
     // AC-013: destructive action requires explicit confirmation before proceeding.
-    const confirmed = window.confirm(`Delete "${content?.title || 'this content'}"? This cannot be undone.`)
-    if (!confirmed) return
+    setConfirmDelete(true)
+  }
+
+  const confirmDeleteContent = async () => {
+    if (!id) return
+    setDeleting(true)
     const result = await window.electron.workspace.deleteContent(id)
+    setDeleting(false)
+    setConfirmDelete(false)
     if (result.success) {
       showSuccess('Content deleted')
       navigate('/content')
@@ -143,6 +152,16 @@ export function ContentDetailPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete content"
+        description={`Delete "${content?.title || 'this content'}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        busy={deleting}
+        onConfirm={confirmDeleteContent}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   )
 }

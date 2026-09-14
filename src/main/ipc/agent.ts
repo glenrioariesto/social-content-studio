@@ -1,7 +1,9 @@
 import { mkdir, readdir, readFile } from 'fs/promises'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 import { safeIpcMain } from './safe-handler'
 import { assertSafeId } from './ipc-handler'
+import { loadEntry, loadDirEntries, filterContentEntries } from './filesystem'
 import { getWorkspaceRoot } from '@main/services/workspace-root'
 import { assertLegalTransition } from '@main/services/lifecycle'
 import { generateUniqueContentId } from '@main/services/id'
@@ -9,32 +11,9 @@ import { atomicWriteJson, mergeKnownFields } from '@main/services/persistence'
 import { renderQueue } from '@main/services/render-queue'
 import { logInfo } from '@main/errors'
 import { AGENT_TOOLS, validateAgentInvoke, getAgentTool } from '@shared/agent'
-import { DEFAULT_RENDER_PRESETS, type Content, type ContentStatus } from '@shared/index'
-import { validateContent, validateTemplate, type ValidationIssue } from '@shared/validators'
-import type { LoadedEntry } from '@shared/loaded-entry'
-import type { Template } from '@shared/index'
+import { DEFAULT_RENDER_PRESETS, type Content, type ContentStatus, type Template } from '@shared/index'
+import { validateContent, validateTemplate } from '@shared/validators'
 import { createAppError } from '@shared/errors'
-
-async function loadEntry<T>(
-  jsonPath: string,
-  dirName: string,
-  validate: (raw: unknown) => { ok: true; value: T } | { ok: false; issues: ValidationIssue[] }
-): Promise<LoadedEntry<T>> {
-  try {
-    const raw = JSON.parse(await readFile(jsonPath, 'utf-8'))
-    const result = validate(raw)
-    if (result.ok) return { kind: 'valid', id: dirName, data: result.value }
-    return { kind: 'invalid', id: dirName, file: jsonPath, issues: result.issues }
-  } catch (err) {
-    return {
-      kind: 'invalid',
-      id: dirName,
-      file: jsonPath,
-      issues: [{ field: '$', message: err instanceof Error ? err.message : 'Failed to read/parse' }]
-    }
-  }
-}
-
 
 /**
  * Studio Agent executor (main process).
@@ -61,26 +40,8 @@ export function initAgentIpc(): void {
 
     if (tool === 'content.list') {
       const filters = (args['filters'] ?? undefined) as Record<string, string> | undefined
-      const contentsDir = join(root, 'contents')
-      let dirs: string[] = []
-      try {
-        const entries = await readdir(contentsDir, { withFileTypes: true })
-        dirs = entries.filter(e => e.isDirectory()).map(e => e.name)
-      } catch {
-        dirs = []
-      }
-      const results = await Promise.all(
-        dirs.map(dir => loadEntry<Content>(join(contentsDir, dir, 'content.json'), dir, validateContent))
-      )
-      const filtered = filters
-        ? results.filter(e => {
-          if (e.kind !== 'valid') return false
-          if (filters.accountId && e.data.accountId !== filters.accountId) return false
-          if (filters.status && e.data.status !== filters.status) return false
-          return true
-        })
-        : results
-      return { success: true, data: filtered }
+      const results = await loadDirEntries<Content>(root, 'contents', 'content.json', validateContent)
+      return { success: true, data: filterContentEntries(results, filters) }
     }
 
     if (tool === 'content.get') {
@@ -124,16 +85,7 @@ export function initAgentIpc(): void {
     }
 
     if (tool === 'template.list') {
-      let dirs: string[] = []
-      try {
-        const entries = await readdir(join(root, 'templates'), { withFileTypes: true })
-        dirs = entries.filter(e => e.isDirectory()).map(e => e.name)
-      } catch {
-        dirs = []
-      }
-      const results: LoadedEntry<Template>[] = await Promise.all(
-        dirs.map(dir => loadEntry<Template>(join(root, 'templates', dir, 'template.json'), dir, validateTemplate))
-      )
+      const results = await loadDirEntries<Template>(root, 'templates', 'template.json', validateTemplate)
       return { success: true, data: results }
     }
 
@@ -146,7 +98,7 @@ export function initAgentIpc(): void {
       assertLegalTransition(existing.status, 'rendering')
       const dims = DEFAULT_RENDER_PRESETS[preset as keyof typeof DEFAULT_RENDER_PRESETS]
       const job = await renderQueue.addJob({
-        id: `render-${Date.now()}`,
+        id: randomUUID(),
         contentId,
         options: {
           inputPath: existing.resourcePath ?? contentId,
@@ -160,7 +112,7 @@ export function initAgentIpc(): void {
       const merged = mergeKnownFields<Content>(existing, { status: 'rendering' }, ['status'])
       merged.updatedAt = new Date().toISOString()
       await atomicWriteJson(jsonPath, merged)
-      logInfo(`Agent enqueued render: ${job.id} for ${contentId}`)
+      logInfo(`Agent added render job: ${job.id} for ${contentId}`)
       return { success: true, data: { jobId: job.id, contentId, preset } }
     }
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { X, Upload, Image as ImageIcon, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Field'
@@ -13,8 +13,8 @@ interface AccountEditorProps {
 
 /**
  * Create/Edit panel for account branding (FR-1/FR-2).
- * Logo can be set via native file dialog OR drag-and-drop (both resolve to an
- * absolute path handed to the main process for a confined copy).
+ * Logo is picked via a main-process native dialog (confined copy; the renderer
+ * never supplies raw filesystem paths).
  */
 export function AccountEditor({ account, onClose, onSaved }: AccountEditorProps) {
   const isEdit = account !== null
@@ -24,8 +24,6 @@ export function AccountEditor({ account, onClose, onSaved }: AccountEditorProps)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [dragOver, setDragOver] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Load current logo preview (edit mode)
   const refreshLogo = useCallback(async () => {
@@ -38,14 +36,14 @@ export function AccountEditor({ account, onClose, onSaved }: AccountEditorProps)
     void refreshLogo()
   }, [refreshLogo])
 
-  const handleLogoPath = async (sourcePath: string | undefined) => {
-    if (!sourcePath || !account) {
-      if (!account) setError('Save the account first before uploading a logo.')
+  const handleSetLogo = async () => {
+    if (!account) {
+      setError('Save the account first before uploading a logo.')
       return
     }
     setSaving(true)
     setError(null)
-    const res = await window.electron.account.setLogo(account.id, sourcePath)
+    const res = await window.electron.account.setLogo(account.id)
     setSaving(false)
     if (!res.success) {
       setError(res.error ?? 'Failed to upload logo')
@@ -53,29 +51,6 @@ export function AccountEditor({ account, onClose, onSaved }: AccountEditorProps)
     }
     await refreshLogo()
     onSaved()
-  }
-
-  const handleChooseFile = async () => {
-    // Electron: <input type="file"> yields File objects with .path
-    fileInputRef.current?.click()
-  }
-
-  const onFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] as (File & { path?: string }) | undefined
-    await handleLogoPath(f?.path)
-    e.target.value = ''
-  }
-
-  const onDrop = async (e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(false)
-    const f = e.dataTransfer.files?.[0]
-    const path = (f as (File & { path?: string }) | undefined)?.path
-    if (!path) {
-      setError('Could not read the dropped file path. Try "Choose logo…" instead.')
-      return
-    }
-    await handleLogoPath(path)
   }
 
   const handleSave = async () => {
@@ -150,17 +125,12 @@ export function AccountEditor({ account, onClose, onSaved }: AccountEditorProps)
             </p>
           </div>
 
-          {/* Logo drop zone */}
+          {/* Logo picker */}
           <div>
             <label className="mb-1 block text-xs text-zinc-500">Logo</label>
             <div
-              onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={onDrop}
-              onClick={handleChooseFile}
-              className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
-                dragOver ? 'border-indigo-500 bg-indigo-950/30' : 'border-zinc-700 bg-zinc-800/40 hover:border-zinc-600'
-              }`}
+              onClick={() => void handleSetLogo()}
+              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-700 bg-zinc-800/40 p-6 text-center transition-colors hover:border-zinc-600"
             >
               {logoUrl ? (
                 <img src={logoUrl} alt="Account logo" className="max-h-20 rounded object-contain" />
@@ -168,25 +138,18 @@ export function AccountEditor({ account, onClose, onSaved }: AccountEditorProps)
                 <>
                   <ImageIcon className="h-8 w-8 text-zinc-600" />
                   <p className="text-xs text-zinc-500">
-                    Drag &amp; drop an image here, or click to browse
+                    Click to choose a logo
                   </p>
                   <p className="text-[10px] text-zinc-600">PNG · JPG · WEBP · SVG — max 5 MB</p>
                 </>
               )}
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".png,.jpg,.jpeg,.webp,.svg"
-              className="hidden"
-              onChange={onFileInputChange}
-            />
             {logoUrl && (
               <button
-                onClick={(e) => { e.stopPropagation(); void refreshLogo() }}
+                onClick={(e) => { e.stopPropagation(); void handleSetLogo() }}
                 className="mt-1 flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300"
               >
-                <Upload className="h-3 w-3" /> Replace logo (click the box above or drop a new file)
+                <Upload className="h-3 w-3" /> Replace logo (click the box above)
               </button>
             )}
           </div>

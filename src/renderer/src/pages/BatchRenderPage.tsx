@@ -24,7 +24,7 @@ export function BatchRenderPage() {
   const [csvFileName, setCsvFileName] = useState('')
   const [step, setStep] = useState<'upload' | 'preview' | 'running' | 'done'>('upload')
   const [createdIds, setCreatedIds] = useState<string[]>([])
-  const [progress, setProgress] = useState({ created: 0, queued: 0 })
+  const [progress, setProgress] = useState({ created: 0, added: 0 })
 
   const handleUpload = useCallback(async () => {
     const input = document.createElement('input')
@@ -68,7 +68,7 @@ export function BatchRenderPage() {
       return
     }
     setStep('running')
-    setProgress({ created: 0, queued: 0 })
+    setProgress({ created: 0, added: 0 })
 
     const result = await window.electron.batch.createContent(selectedAccountId, parsedRows as unknown as Record<string, string>[], selectedTemplateId || undefined)
     if (!result.success || !result.data) {
@@ -81,10 +81,10 @@ export function BatchRenderPage() {
 
     const queueResult = await window.electron.batch.enqueueAll(result.data.ids)
     if (queueResult.success && queueResult.data) {
-      setProgress(p => ({ ...p, queued: queueResult.data!.queued }))
+      setProgress(p => ({ ...p, added: queueResult.data!.added }))
     }
 
-    showSuccess(`Created ${result.data.count} items, ${queueResult.data?.queued || 0} queued for render`)
+    showSuccess(`Created ${result.data.count} items, ${queueResult.data?.added || 0} added for render`)
     setStep('done')
   }
 
@@ -201,7 +201,7 @@ export function BatchRenderPage() {
             <p className="mt-2 text-sm text-zinc-400">
               Created <span className="font-medium text-zinc-200">{progress.created}</span> content items
               {' • '}
-              Queued <span className="font-medium text-zinc-200">{progress.queued}</span> for rendering
+              Added <span className="font-medium text-zinc-200">{progress.added}</span> for rendering
             </p>
           </Card>
 

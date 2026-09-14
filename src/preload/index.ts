@@ -33,14 +33,14 @@ const electronAPI = {
   account: {
     create: (data: { name: string; description?: string; replizId?: string }) => ipcRenderer.invoke('account:create', data),
     update: (id: string, data: Record<string, unknown>) => ipcRenderer.invoke('account:update', id, data),
-    setLogo: (id: string, sourcePath: string) => ipcRenderer.invoke('account:set-logo', id, sourcePath),
+    setLogo: (id: string) => ipcRenderer.invoke('account:set-logo', id),
     getLogoUrl: (id: string) => ipcRenderer.invoke('account:get-logo-url', id)
   },
 
   resource: {
     list: () => ipcRenderer.invoke('resource:list'),
     download: (url: string, fileName?: string) => ipcRenderer.invoke('resource:download', url, fileName),
-    upload: (sourcePath: string, fileName: string) => ipcRenderer.invoke('resource:upload', sourcePath, fileName),
+    upload: (fileName?: string) => ipcRenderer.invoke('resource:upload', fileName),
     delete: (id: string) => ipcRenderer.invoke('resource:delete', id)
   },
 
@@ -89,9 +89,6 @@ const electronAPI = {
   },
   off: (channel: string, callback: (...args: unknown[]) => void) => {
     ipcRenderer.removeListener(channel, callback)
-  },
-  send: (channel: string, ...args: unknown[]) => {
-    ipcRenderer.send(channel, ...args)
   }
 }
 

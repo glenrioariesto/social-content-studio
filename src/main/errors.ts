@@ -2,14 +2,23 @@ import { app, BrowserWindow } from 'electron'
 import { appendFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { createAppError, type AppError } from '@shared/errors'
+import { getWorkspaceRoot } from '@main/services/workspace-root'
 
-const LOG_DIR = join(process.cwd(), 'workspace', 'config', 'logs')
 let logInitialized = false
+
+/** Lazy root-aligned log dir (PRN-003); falls back to the no-settings default. */
+function logDir(): string {
+  try {
+    return join(getWorkspaceRoot(), 'config', 'logs')
+  } catch {
+    return join(process.cwd(), 'workspace', 'config', 'logs')
+  }
+}
 
 async function ensureLogDir(): Promise<void> {
   if (logInitialized) return
   try {
-    await mkdir(LOG_DIR, { recursive: true })
+    await mkdir(logDir(), { recursive: true })
     logInitialized = true
   } catch {
     logInitialized = false
@@ -19,7 +28,7 @@ async function ensureLogDir(): Promise<void> {
 async function writeLog(level: string, error: AppError): Promise<void> {
   await ensureLogDir()
   const date = new Date().toISOString().split('T')[0]
-  const logFile = join(LOG_DIR, `${date}.log`)
+  const logFile = join(logDir(), `${date}.log`)
   const line = `[${new Date().toISOString()}] [${level}] [${error.source}] ${error.code}: ${error.message}\n${error.stack ? error.stack + '\n' : ''}${error.details ? `Details: ${JSON.stringify(error.details)}\n` : ''}\n`
   try {
     await appendFile(logFile, line, 'utf-8')
@@ -60,10 +69,14 @@ export async function logError(error: AppError): Promise<void> {
   await writeLog('ERROR', error)
 }
 
+export async function logWarning(error: AppError): Promise<void> {
+  await writeLog('WARNING', error)
+}
+
 export async function logInfo(message: string): Promise<void> {
   await ensureLogDir()
   const date = new Date().toISOString().split('T')[0]
-  const logFile = join(LOG_DIR, `${date}.log`)
+  const logFile = join(logDir(), `${date}.log`)
   const line = `[${new Date().toISOString()}] [INFO] ${message}\n`
   try {
     await appendFile(logFile, line, 'utf-8')

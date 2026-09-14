@@ -1,6 +1,4 @@
 import { spawn } from 'child_process'
-import { readFile, writeFile, mkdir } from 'fs/promises'
-import { join, basename } from 'path'
 import { logInfo, logError } from '@main/errors'
 import { createAppError } from '@shared/errors'
 
@@ -127,41 +125,5 @@ export async function generateThumbnail(videoPath: string, outputPath: string, t
     const proc = spawn('ffmpeg', args, { stdio: 'pipe' })
     proc.on('close', (code) => resolve(code === 0))
     proc.on('error', () => resolve(false))
-  })
-}
-
-export async function renderFromTemplate(
-  templateDir: string,
-  resourcePath: string,
-  outputPath: string,
-  variables: Record<string, string>,
-  onProgress?: (p: number) => void
-): Promise<{ success: boolean; outputPath?: string; error?: string }> {
-  const htmlPath = join(templateDir, 'index.html')
-  const cssPath = join(templateDir, 'style.css')
-  const jsonPath = join(templateDir, 'template.json')
-
-  let html = await readFile(htmlPath, 'utf-8').catch(() => '')
-  const css = await readFile(cssPath, 'utf-8').catch(() => '')
-  const json = JSON.parse(await readFile(jsonPath, 'utf-8').catch(() => '{}'))
-
-  for (const [key, val] of Object.entries(variables)) {
-    html = html.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), val as string)
-  }
-
-  const renderedDir = join(outputPath, '..')
-  await mkdir(renderedDir, { recursive: true })
-  await writeFile(join(renderedDir, 'rendered.html'), html, 'utf-8')
-
-  return renderVideo({
-    inputPath: resourcePath,
-    outputPath,
-    width: json.output?.width || 1080,
-    height: json.output?.height || 1920,
-    fps: json.output?.fps || 30,
-    overlayPath: json.overlay?.file ? join(templateDir, json.overlay.file) : undefined,
-    overlayPosition: json.overlay?.position,
-    preset: 'medium',
-    onProgress
   })
 }

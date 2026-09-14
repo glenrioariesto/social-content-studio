@@ -20,3 +20,11 @@ export function parseResourceMeta(raw: string): Resource | null {
     return null
   }
 }
+
+/** Allow only http(s) URLs that cannot inject yt-dlp options (no leading dash). */
+export function isAllowedDownloadUrl(url: string): boolean {
+  const trimmed = url.trim()
+  if (!/^https?:\/\//i.test(trimmed)) return false
+  if (trimmed.startsWith('-')) return false
+  return true
+}

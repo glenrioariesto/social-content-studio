@@ -1,6 +1,6 @@
 import { type BrowserWindow } from 'electron'
 import { readFile, writeFile, readdir, mkdir, rm, stat, access, realpath } from 'fs/promises'
-import { join, sep } from 'path'
+import { join, sep, dirname, relative } from 'path'
 import { safeIpcMain } from './safe-handler'
 import { assertSafeId } from './ipc-handler'
 import { logError, logInfo } from '@main/errors'
@@ -19,7 +19,7 @@ function fsError(code: ErrorCode, err: unknown, context?: string) {
 }
 
 /** Reads + validates one document; returns a LoadedEntry (valid or invalid). */
-async function loadEntry<T>(
+export async function loadEntry<T>(
   jsonPath: string,
   dirName: string,
   validate: (raw: unknown) => { ok: true; value: T } | { ok: false; issues: ValidationIssue[] }
@@ -44,22 +44,90 @@ async function loadEntry<T>(
   }
 }
 
+/** Lists one document per sub-directory of `root/subdir` (reads `<dir>/<json>` for each). */
+export async function loadDirEntries<T>(
+  root: string,
+  subdir: string,
+  jsonFileName: string,
+  validate: (raw: unknown) => { ok: true; value: T } | { ok: false; issues: ValidationIssue[] }
+): Promise<LoadedEntry<T>[]> {
+  const dir = join(root, subdir)
+  let names: string[] = []
+  try {
+    const entries = await readdir(dir, { withFileTypes: true })
+    names = entries.filter(e => e.isDirectory()).map(e => e.name)
+  } catch {
+    names = []
+  }
+  return Promise.all(names.map(name => loadEntry<T>(join(dir, name, jsonFileName), name, validate)))
+}
+
+/** Shared content filters (accountId / status) applied uniformly across consumers. */
+export function filterContentEntries(
+  results: LoadedEntry<Content>[],
+  filters?: Record<string, string>
+): LoadedEntry<Content>[] {
+  if (!filters) return results
+  return results.filter(e => {
+    if (e.kind !== 'valid') return false
+    if (filters.accountId && e.data.accountId !== filters.accountId) return false
+    if (filters.status && e.data.status !== filters.status) return false
+    return true
+  })
+}
+
+/** Secrets that are never readable through the generic `fs:*` bridge. */
+function isDeniedSecretPath(root: string, resolved: string): boolean {
+  const rel = relative(root, resolved).toLowerCase().replace(/\\/g, '/')
+  return rel.startsWith('config') &&
+    (rel.includes('credentials') || rel.endsWith('.enc.json'))
+}
+
 /**
  * Guard wrapper: confines a candidate path and logs the refusal (SEC-003) on
  * failure. The backup channels no longer bypass this (the BACKUP_CHANNELS
  * whitelist was removed — SEC-01/PRN-001).
+ *
+ * `createMode` (fs:write-file / fs:mkdir): the target may not exist yet, so we
+ * realpath the parent directory to check for symlink escapes, then operate on
+ * the lexical candidate. Read-style ops realpath the full target (SEC-03).
  */
-async function guardOrThrow(channel: string, root: string, candidate: string): Promise<string> {
+async function guardOrThrow(channel: string, root: string, candidate: string, createMode = false): Promise<string> {
   try {
     const confined = assertInsideWorkspace(root, candidate, channel)
-    // SEC-03: re-check the real (symlink-resolved) path still stays inside root.
-    const real = await realpath(confined.absolute)
     const absRoot = await realpath(root)
-    if (!real.toLowerCase().startsWith(absRoot.toLowerCase() + sep.toLowerCase()) &&
-        real.toLowerCase() !== absRoot.toLowerCase()) {
-      throw createAppError('FS_PERMISSION_DENIED', `Symlink escapes workspace root: ${candidate}`, 'ipc', { channel, requested: candidate })
+
+    if (!createMode) {
+      // SEC-03: re-check the real (symlink-resolved) path still stays inside root.
+      const real = await realpath(confined.absolute)
+      if (!real.toLowerCase().startsWith(absRoot.toLowerCase() + sep.toLowerCase()) &&
+          real.toLowerCase() !== absRoot.toLowerCase()) {
+        throw createAppError('FS_PERMISSION_DENIED', `Symlink escapes workspace root: ${candidate}`, 'ipc', { channel, requested: candidate })
+      }
+      if (isDeniedSecretPath(root, real)) {
+        throw createAppError('FS_PERMISSION_DENIED', `Access to credential file is restricted: ${candidate}`, 'ipc', { channel, requested: candidate })
+      }
+      return real
     }
-    return real
+
+    // Create mode: target may not exist yet. Verify the parent directory is
+    // not a symlink escaping the root; a non-existent path has no symlink to
+    // exploit, and assertInsideWorkspace already enforced lexical containment.
+    try {
+      const realParent = await realpath(dirname(confined.absolute))
+      if (!realParent.toLowerCase().startsWith(absRoot.toLowerCase() + sep.toLowerCase()) &&
+          realParent.toLowerCase() !== absRoot.toLowerCase()) {
+        throw createAppError('FS_PERMISSION_DENIED', `Parent symlink escapes workspace root: ${candidate}`, 'ipc', { channel, requested: candidate })
+      }
+    } catch (parentErr) {
+      if (parentErr && typeof parentErr === 'object' && 'code' in parentErr && (parentErr as { code: string }).code !== 'ENOENT') {
+        throw parentErr
+      }
+    }
+    if (isDeniedSecretPath(root, confined.absolute)) {
+      throw createAppError('FS_PERMISSION_DENIED', `Access to credential file is restricted: ${candidate}`, 'ipc', { channel, requested: candidate })
+    }
+    return confined.absolute
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'FS_PERMISSION_DENIED') {
       void logError(err as unknown as import('@shared/errors').AppError)
@@ -111,7 +179,8 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
   }, 'FS_READ_ERROR')
 
   safeIpcMain('fs:write-file', async (_event, filePath: string, content: string) => {
-    const p = await guardOrThrow('fs:write-file', ws(), filePath)
+    // createMode: the file may not exist yet (creating new templates/assets).
+    const p = await guardOrThrow('fs:write-file', ws(), filePath, true)
     await writeFile(p, content, 'utf-8')
     return { success: true }
   }, 'FS_WRITE_ERROR')
@@ -130,7 +199,8 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
   }, 'FS_READ_ERROR')
 
   safeIpcMain('fs:mkdir', async (_event, dirPath: string) => {
-    const p = await guardOrThrow('fs:mkdir', ws(), dirPath)
+    // createMode: the directory may not exist yet.
+    const p = await guardOrThrow('fs:mkdir', ws(), dirPath, true)
     await mkdir(p, { recursive: true })
     return { success: true }
   }, 'FS_WRITE_ERROR')
@@ -168,38 +238,14 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
 
   safeIpcMain('workspace:get-accounts', async () => {
     const root = ws()
-    const entries = await readdir(join(root, 'accounts'), { withFileTypes: true })
-    const accounts = entries.filter(e => e.isDirectory()).map(e => e.name)
-    const results: LoadedEntry<Account>[] = await Promise.all(accounts.map(name => {
-      const jsonPath = join(root, 'accounts', name, 'account.json')
-      return loadEntry<Account>(jsonPath, name, validateAccount)
-    }))
+    const results = await loadDirEntries<Account>(root, 'accounts', 'account.json', validateAccount)
     return { success: true, data: results }
   }, 'ACCOUNT_NOT_FOUND')
 
   safeIpcMain('workspace:get-contents', async (_event, filters?: Record<string, string>) => {
     const root = ws()
-    const contentsDir = join(root, 'contents')
-    const entries = await readdir(contentsDir, { withFileTypes: true })
-    const dirs = entries.filter(e => e.isDirectory()).map(e => e.name)
-
-    const results: LoadedEntry<Content>[] = await Promise.all(dirs.map(dir => {
-      const jsonPath = join(contentsDir, dir, 'content.json')
-      return loadEntry<Content>(jsonPath, dir, validateContent)
-    }))
-
-    if (filters) {
-      return {
-        success: true,
-        data: results.filter(e => {
-          if (e.kind !== 'valid') return false
-          if (filters.accountId && e.data.accountId !== filters.accountId) return false
-          if (filters.status && e.data.status !== filters.status) return false
-          return true
-        })
-      }
-    }
-    return { success: true, data: results }
+    const results = await loadDirEntries<Content>(root, 'contents', 'content.json', validateContent)
+    return { success: true, data: filterContentEntries(results, filters) }
   }, 'CONTENT_NOT_FOUND')
 
   safeIpcMain('workspace:get-content', async (_event, id: string) => {
@@ -263,12 +309,7 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
 
   safeIpcMain('workspace:get-templates', async () => {
     const root = ws()
-    const entries = await readdir(join(root, 'templates'), { withFileTypes: true })
-    const dirs = entries.filter(e => e.isDirectory()).map(e => e.name)
-    const results: LoadedEntry<Template>[] = await Promise.all(dirs.map(dir => {
-      const jsonPath = join(root, 'templates', dir, 'template.json')
-      return loadEntry<Template>(jsonPath, dir, validateTemplate)
-    }))
+    const results = await loadDirEntries<Template>(root, 'templates', 'template.json', validateTemplate)
     return { success: true, data: results }
   }, 'TEMPLATE_NOT_FOUND')
 

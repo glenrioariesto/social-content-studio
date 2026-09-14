@@ -213,3 +213,62 @@
 <!-- checkpoint-tail: Spec clarified at 93/100 on 2026-08-24 (F1-F5 auto-resolved, consumer-inventory task mandated); next session runs /sdlc-plan-tasks with Spec + PRD + report attached. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-13
+
+- **Active Memory Path:** `.agents/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code Review COMPLETE (`/sdlc-code-review` against commit `b5101b2`). Refactoring Plan APPROVED by user; next: `/sdlc-write-code` in a NEW chat session.
+- **Active Artifacts:**
+  - `plan/plan-refactor-code-health-v1.0.md` — Status: ✅ Completed/Finalized (v1.1), executed & verified (77 tests, build green), committed
+  - `plan/plan-refactor-code-review-v1.0.md` — Status: ✅ Approved (v1.0, new — remediates review findings, 4 phases)
+  - `docs/discovery-draft-20260913-0200-code-health-audit.md` — Status: ✅ Consumed as spec source
+  - Commit `b5101b2` — "Code health refactor P1-5" (106 files, +3443/-866) — reviewed
+- **Achieved Milestones:**
+  - Committed the full code-health refactor as `b5101b2`: shared `Template`/`Resource` contract unification, `RenderJobSummary`, render status realigned to `waiting` (legacy `queued` remap in `restore()`), resource IPC activated end-to-end (validated `waiting`), dead channels (`account:list-files`, `workspace:get-account`) removed, `renderer` casts cleaned (`LogsPage`/`SettingsPage`), `resource-utils.ts` + 9 tests, plan/ARCHITECTURE docs updated. `bun run verify` green pre-commit (77 tests / 0 fail).
+  - Ran full `/sdlc-code-review` (Two-Axis, parallel sub-agents) over `27aaf68...b5101b2`; findings independently spot-verified in source.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** `Select-String -Path src` (PowerShell) to grep source tree during verification.
+  - **Reason:** `Select-String -Path` does not recurse into directories (silent no-output fail). Use the Grep tool / `git grep` instead. `rg` is not installed.
+  - **Note:** Generalizable tooling hazard — flag for promotion to Knowledge Base at next compaction.
+- **Updated Files:**
+  - `plan/plan-refactor-code-review-v1.0.md` — new (4-phase remediation plan; every task traced to SEC/CON/PRN/REQ ids; VERIFY + APPROVAL gates per phase)
+  - Commit `b5101b2` — 106 files (see commit message; staging used `git add -A -- . ':(exclude)workspace'`)
+- **Decisions Made (binding):**
+  - User APPROVED the review plan → owner routes execution through `/sdlc-write-code` in a new session.
+  - Review verdict: reject-and-refactor. 2 CRITICAL security (SEC-01 arbitrary `sourcePath` copy in `resource:upload`/`account:set-logo`; SEC-02 zip-slip `backup:import`), 8 REQUIRED standards (render-queue auto-resume, `maxConcurrent` no-op, thumbnail failure marks render failed, `resource:download` missing `proc.on('error')`, secret leak into safe-handler log envelope, byt base64 fallback misreported `encrypted:true`, job-id collision `render-${Date.now()}`, `logError` on failure), 1 REQUIRED spec (SPEC-01 Phase 3 `ConfirmDialog`/`Modal` missing, `window.confirm` still in ContentDetailPage), + NIT/FYI (agent.ts vs filesystem.ts duplication, preload `send` pass-through, scope-creep payloads SC-1..4).
+- **Next Action / Pending:**
+  - New session → `/sdlc-write-code` Execute the refactoring plan defined in @plan/plan-refactor-code-review-v1.0.md (phases: 1 Security Remediation → 2 Render-Queue → 3 Spec UI → 4 Hygiene; stop at each APPROVAL gate).
+  - Operator-side pending (carried from earlier checkpoints): commit `docs/` + `AGENTS.md` history; housekeeping backlog (track `.agents/`, customize placeholder title, delete `AGENTS.md.bak`).
+
+<!-- checkpoint-tail: Code review of b5101b2 done 2026-09-13 → plan-refactor-code-review-v1.0 approved (2 CRITICAL + 8 REQUIRED standards, 1 REQUIRED spec); next session runs /sdlc-write-code on that plan. -->
+
+---
+
+## 📝 Session Checkpoint: 2026-09-14
+
+- **Active Memory Path:** `.agents/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Code Review plan EXECUTION COMPLETE (`/sdlc-write-code` equivalent via direct edit session). `plan/plan-refactor-code-review-v1.0.md` fully finalized (TASK-101..405 all `[x]`). Next: opportunistic / new SDLC phases as requested.
+- **Active Artifacts:**
+  - `plan/plan-refactor-code-review-v1.0.md` — Status: ✅ Finalized/Approved (v1.0, all 4 phases executed & verified; 117 tests / 0 fail, `bun run verify` green incl. electron-vite build)
+- **Achieved Milestones:**
+  - Phase 1 (Security Remediation, TASK-101..108): zip-slip guard `validateZipEntries` in `src/main/ipc/backup.ts` + regression test `tests/security/zip-slip.test.ts`; `resource:download` `proc.on('error')` settle + URL allowlist (`^https?://`, reject leading `-`); safe-handler envelope arg-redaction; repliz honest `encrypted:false` fallback; new micro-tests `tests/main/resource-download-settle.test.ts` + `tests/main/repliz-honesty.test.ts`.
+  - Phase 2 (Render-Queue, TASK-201..207): verified pre-existing implementation (restore→`processQueue()`, `running`-set concurrency, non-fatal thumbnail, `logError` on failed, `randomUUID()` job ids across render/agent/batch). Covers all TASK-206 scenarios in `tests/services/render-queue.test.ts`.
+  - Phase 3 (Spec UI + Vocabulary, TASK-301..307): confirmed `Modal.tsx`/`ConfirmDialog.tsx` exist + wired into ContentDetail/Templates/Assets; zero `window.confirm` left; `queued` only in legacy remap in `restore()`.
+  - Phase 4 (Hygiene + Docs, TASK-401..404): `docs/adr/0004-repliz-credential-vault.md` + `docs/reference/error-handling.md` confirmed present.
+  - No markdownlint tooling installed in repo; docs-lint verification relies on consistent table formatting.
+- **Dead-Ends (Do NOT Repeat):**
+  - None recorded this segment.
+- **Updated Files:**
+  - `plan/plan-refactor-code-review-v1.0.md` — checkboxes for TASK-201..208 and TASK-301..304 and TASK-405 filled `[x]`; TASK-108 note updated (guarded channels exercised directly by security suites = "stubbed renderer" coverage).
+  - `tests/main/resource-download-settle.test.ts` — new (spawn-ENOENT settle, leading-`-` URL rejection without spawn).
+  - `tests/main/repliz-honesty.test.ts` — new (encrypted:false honest status + persisted envelope).
+  - `tests/security/zip-slip.test.ts`, `src/main/ipc/backup.ts` — zip-slip remediation (earlier in session).
+- **Decisions Made (binding):**
+  - `resource:download` timeout settle covered at spawn-ENOENT level (10-min hard timeout path not unit-tested; observed via code + ENOENT test) — documented as manual-observation-only gap for TASK-207 (2 overlapping renders in log at `maxConcurrentRender=2` needs a running app).
+- **Next Action / Pending:**
+  - Plan is closed. Operator-side housekeeping backlog (carried from earlier checkpoints, still open): commit `docs/` + plan changes; track `.agents/` in git; customize `[Your Application Name]` placeholder in AGENTS.md; delete `AGENTS.md.bak`; run prepared `gh issue create` commands (GH-001..GH-007).
+  - No further SDLC phase mandated unless user opens a new request.
+
+<!-- checkpoint-tail: plan-refactor-code-review-v1.0 closed 2026-09-14 — all 4 phases verified (117 tests/0 fail, verify+build green), zip-slip + download-settle + repliz-honesty tests added; next work is operator housekeeping. -->
+
+---

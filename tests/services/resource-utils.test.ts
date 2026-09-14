@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import { sanitizeFileName, parseResourceMeta } from '../../src/main/services/resource-utils'
+import { sanitizeFileName, parseResourceMeta, isAllowedDownloadUrl } from '../../src/main/services/resource-utils'
 
 describe('sanitizeFileName', () => {
   const fallback = 'fallback.mp4'
@@ -57,5 +57,30 @@ describe('parseResourceMeta', () => {
   it('returns null when the id field is missing or empty', () => {
     expect(parseResourceMeta('{"fileName":"x.mp4"}')).toBeNull()
     expect(parseResourceMeta('{"id":""}')).toBeNull()
+  })
+})
+
+describe('isAllowedDownloadUrl', () => {
+  it('allows https URLs', () => {
+    expect(isAllowedDownloadUrl('https://example.com/video.mp4')).toBe(true)
+  })
+
+  it('allows http URLs and trims surrounding whitespace', () => {
+    expect(isAllowedDownloadUrl('  http://example.com/x.mp4  ')).toBe(true)
+  })
+
+  it('rejects non-http schemes', () => {
+    expect(isAllowedDownloadUrl('ftp://example.com/v.mp4')).toBe(false)
+    expect(isAllowedDownloadUrl('file:///etc/passwd')).toBe(false)
+  })
+
+  it('rejects option-injection inputs that begin with a dash', () => {
+    expect(isAllowedDownloadUrl('-o /tmp/out')).toBe(false)
+    expect(isAllowedDownloadUrl('--skip-download https://example.com')).toBe(false)
+  })
+
+  it('rejects empty or blank input', () => {
+    expect(isAllowedDownloadUrl('')).toBe(false)
+    expect(isAllowedDownloadUrl('   ')).toBe(false)
   })
 })

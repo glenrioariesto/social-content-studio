@@ -1,5 +1,6 @@
 import { mkdir, readdir, readFile } from 'fs/promises'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 import { generateUniqueContentId } from '../src/main/services/id'
 import { atomicWriteJson, mergeKnownFields } from '../src/main/services/persistence'
 import { assertLegalTransition } from '../src/main/services/lifecycle'
@@ -74,7 +75,7 @@ async function demo() {
 
   const preset = 'tiktok'
   const dims = DEFAULT_RENDER_PRESETS[preset]
-  const jobId = `render-${Date.now()}`
+  const jobId = randomUUID()
   frame('5/6 render.enqueue (planned, tanpa FFmpeg)', [
     `job: ${jobId}`,
     `content: ${id}`,

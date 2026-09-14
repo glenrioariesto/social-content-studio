@@ -1,6 +1,7 @@
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { logError } from '@main/errors'
 import { createAppError, toIPCError, type ErrorCode } from '@shared/errors'
+import { sanitizeForLog } from '@main/services/log-redact'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type IpcHandler<TArgs extends any[] = any[]> = (event: IpcMainInvokeEvent, ...args: TArgs) => Promise<unknown> | unknown
@@ -19,7 +20,7 @@ export function safeIpcMain(
         errorCode,
         err instanceof Error ? err.message : String(err),
         'ipc',
-        { channel, args: args.slice(0, 3) }
+        { channel, args: sanitizeForLog(channel, args) }
       )
       await logError(appErr)
       console.error(`[IPC] Error in "${channel}":`, err)

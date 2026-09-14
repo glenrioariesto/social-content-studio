@@ -27,7 +27,7 @@ export interface ElectronAPI {
   account: {
     create: (data: { name: string; description?: string; replizId?: string }) => Promise<{ success: boolean; data?: import('@shared/index').Account; error?: string; errorCode?: string }>
     update: (id: string, data: Record<string, unknown>) => Promise<{ success: boolean; data?: import('@shared/index').Account; error?: string; errorCode?: string }>
-    setLogo: (id: string, sourcePath: string) => Promise<{ success: boolean; data?: import('@shared/index').Account; error?: string; errorCode?: string }>
+    setLogo: (id: string) => Promise<{ success: boolean; data?: import('@shared/index').Account; error?: string; errorCode?: string }>
     getLogoUrl: (id: string) => Promise<{ success: boolean; data?: string | null; error?: string }>
   }
   render: {
@@ -55,7 +55,7 @@ export interface ElectronAPI {
   batch: {
     parseCsv: (csvPath: string) => Promise<{ success: boolean; data?: { count: number; rows: Record<string, string>[] }; error?: string }>
     createContent: (accountId: string, rows: Record<string, string>[], templateId?: string) => Promise<{ success: boolean; data?: { ids: string[]; count: number }; error?: string }>
-    enqueueAll: (contentIds: string[], preset?: string) => Promise<{ success: boolean; data?: { queued: number }; error?: string }>
+    enqueueAll: (contentIds: string[], preset?: string) => Promise<{ success: boolean; data?: { added: number }; error?: string }>
     exportCsv: (outputPath: string) => Promise<{ success: boolean; data?: string; error?: string }>
   }
   agent: {
@@ -65,12 +65,11 @@ export interface ElectronAPI {
   resource: {
     list: () => Promise<import('@shared/errors').IPCResult<import('@shared/resource').Resource[]>>
     download: (url: string, fileName?: string) => Promise<import('@shared/errors').IPCResult<import('@shared/resource').Resource>>
-    upload: (sourcePath: string, fileName: string) => Promise<import('@shared/errors').IPCResult<import('@shared/resource').Resource>>
+    upload: (fileName?: string) => Promise<import('@shared/errors').IPCResult<import('@shared/resource').Resource>>
     delete: (id: string) => Promise<import('@shared/errors').IPCResult<null>>
   }
   on: (channel: string, callback: (...args: unknown[]) => void) => () => void
   off: (channel: string, callback: (...args: unknown[]) => void) => void
-  send: (channel: string, ...args: unknown[]) => void
 }
 
 declare global {

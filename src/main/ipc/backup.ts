@@ -8,6 +8,7 @@ import { logInfo, logError } from '@main/errors'
 import { createAppError } from '@shared/errors'
 import { getWorkspaceRoot } from '@main/services/workspace-root'
 import { assertInsideWorkspace } from '@main/services/path-guard'
+import { validateZipEntries } from '@main/services/zip-entries'
 import { atomicWriteJson } from '@main/services/persistence'
 
 export function initBackupIpc(): void {
@@ -38,6 +39,13 @@ export function initBackupIpc(): void {
     const confined = assertInsideWorkspace(root, zipPath, 'backup:import').absolute
     try {
       const zip = new AdmZip(confined)
+      // Reject any entry that could escape the workspace on extract (zip-slip,
+      // SEC-02): absolute paths, drive volumes, `..` segments, symlinks, empty names.
+      const offenders = validateZipEntries(zip.getEntries())
+      if (offenders.length > 0) {
+        logError(createAppError('FS_VALIDATION_ERROR', `Backup import refused: unsafe zip entries (${offenders.join(', ')})`, 'ipc', { channel: 'backup:import' }))
+        return { success: false, error: `Backup import refused: unsafe zip entries`, errorCode: 'FS_VALIDATION_ERROR' }
+      }
       zip.extractAllTo(root, /*overwrite*/ true)
       logInfo(`Backup imported: ${confined}`)
       return { success: true }

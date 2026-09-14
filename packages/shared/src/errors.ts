@@ -12,6 +12,7 @@ export type ErrorCode =
   | 'ACCOUNT_NOT_FOUND'
   | 'RENDER_FAILED'
   | 'RENDER_TIMEOUT'
+  | 'THUMBNAIL_FAILED'
   | 'FFMPEG_NOT_FOUND'
   | 'FFMPEG_ENCODING_ERROR'
   | 'RESOURCE_DOWNLOAD_FAILED'
@@ -98,6 +99,7 @@ export const ERROR_USER_MESSAGES: Record<ErrorCode, string> = {
   ACCOUNT_NOT_FOUND: 'Akun tidak ditemukan.',
   RENDER_FAILED: 'Render gagal. Periksa antrean dan coba lagi.',
   RENDER_TIMEOUT: 'Render kehabisan waktu. Coba lagi.',
+  THUMBNAIL_FAILED: 'Thumbnail gagal dibuat, tetapi video render tetap berhasil.',
   FFMPEG_NOT_FOUND: 'FFmpeg tidak ditemukan. Periksa pengaturan ffmpegPath.',
   FFMPEG_ENCODING_ERROR: 'Gagal encoding video. Periksa file sumber.',
   RESOURCE_DOWNLOAD_FAILED: 'Gagal mengunduh resource.',

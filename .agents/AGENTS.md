@@ -1,7 +1,7 @@
 <!-- markdownlint-disable -->
-# AGENTS.md - [Your Application Name] (Please replace this title with your actual project context)
+# AGENTS.md - Social Content Studio
 
-> **Project Description:** [Please write a 1-3 sentence summary of what this project is about, its core domain, and its primary goals. This helps all agents understand the big picture context before diving into specifics.]
+> **Project Description:** Social Content Studio is a local Electron desktop app for managing social-media content, HTML templates, local assets, and FFmpeg renders. It is a local-first MVP: metadata is stored as JSON under `workspace/`, assets and outputs remain on disk, and publishing to social platforms is manual.
 
 ## Communication
 
