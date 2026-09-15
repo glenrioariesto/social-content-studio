@@ -272,3 +272,36 @@
 <!-- checkpoint-tail: plan-refactor-code-review-v1.0 closed 2026-09-14 — all 4 phases verified (117 tests/0 fail, verify+build green), zip-slip + download-settle + repliz-honesty tests added; housekeeping done (commit ede21d1, .agents tracked, issues #1-#7 shipped); remaining = git push. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-15
+
+- **Active Memory Path:** `.agents/instructions/memory.instructions.md`
+- **Current SDLC Phase:** Direct GH-priority implementation session (equivalent of `/sdlc-write-code`, informal continuation of the foundation stabilization cycle). GH-001..GH-007 acceptance criteria FULLY MET, pending commit.
+- **Active Artifacts:**
+  - `spec/spec-architecture-foundation-stabilization.md` — Status: ✅ Finalized (v1.0, clarified 93/100)
+  - `plan/plan-refactor-code-review-v1.0.md` — Status: ✅ Closed (previous cycle)
+  - This session touched implementation + one new test file; no new SDLC doc.
+- **Achieved Milestones:**
+  - Closed the last remaining backlog gap **GH-004 AC-008 (guided setup state)**: `settings:status` + `settings:pick-workspace` IPC, renderer launch gate, and `WorkspaceSetupPage`.
+  - Full `bun run verify` green: **127 pass / 0 fail** (up from 122), typecheck node+web, electron-vite build OK.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Initial `WorkspaceSetupPage.tsx` using a nonexistent `setShowError` dummy + hidden `LoadingState` hack; also `tests/main/settings-status.test.ts` first draft set the temp `BOOTSTRAP_SETTINGS_PATH` inside `beforeEach`, AFTER the mock factory captured it (captured `''`).
+  - **Reason:** Mocked module factories in `mock.module` evaluate once at import time — any per-test path override must be assigned to a module-scope variable BEFORE `await import` (temp dir created at top of test file).
+  - **Note:** Generalizable Bun mocking hazard — candidate for Knowledge Base promotion at next compaction.
+- **Updated Files:**
+  - `src/main/ipc/backup.ts` — added `settings:status` (non-throwing probe: missing/invalid configured root → `valid:false`, fallback `cwd/workspace`; no settings → `valid:true, configuredRoot:null`) and `settings:pick-workspace` (native `dialog.showOpenDialog` `openDirectory`, SEC-001 exempt via explicit user intent).
+  - `src/preload/index.ts` + `src/renderer/src/lib/electron.d.ts` — bridged/typed `settings.status` + `settings.pickWorkspace`.
+  - `src/renderer/src/App.tsx` — mount-time gate: probe status → LoadingState (`settings:status` initial) → `WorkspaceSetupPage` when invalid → normal app when valid; added `settings:valid` gate before route render.
+  - `src/renderer/src/pages/WorkspaceSetupPage.tsx` — new guided-setup page (shows bad path, folder picker, save with validation via `settings:write`, revert-to-default, restart notice).
+  - `tests/main/settings-status.test.ts` — new (5 tests: missing folder, path-is-file, valid folder, first-run fallback, picker returns dialog path).
+- **Decisions Made:**
+  - Guided setup honors existing `settings:write` validation + `requiresRestart` semantics; user resolves setup via native folder picker or revert to default, then restarts.
+  - Renderer gate fails open to the normal app on probe IPC error (avoid bricking launch).
+- **Next Action / Pending:**
+  - Commit this session's changes (previously offered; operator to confirm). Suggested message: "feat(settings): guided workspace setup for invalid workspacePath (GH-004 AC-008)".
+  - Carried from prior checkpoints: `git push` of `main` (was 2 commits ahead); commit docs/spec history if still pending; no other open blockers.
+  - GH-001..GH-007 all MET on `main` + verified; remaining backlog = documented known inconsistencies only (scheduled status, landscape preset, platform field, Playwright) — out of scope.
+
+<!-- checkpoint-tail: 2026-09-15 GH-004 AC-008 guided workspace setup landed (settings:status + settings:pick-workspace + WorkspaceSetupPage + 5 tests), verify 127/0 green; GH-001..007 all MET; session changes uncommitted, main ahead of origin. -->
+
+---
