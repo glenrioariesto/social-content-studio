@@ -6,11 +6,14 @@ import type { RenderJobSummary } from '@shared/index'
 export function useRenderQueue() {
   const [jobs, setJobs] = useState<RenderJobSummary[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
   const { showError } = useErrorToast()
 
   const loadJobs = useCallback(async () => {
+    setLoading(true)
     if (!window.electron?.render) {
       setError('Bridge tidak tersedia. Mulai ulang aplikasi.')
+      setLoading(false)
       return
     }
     const result = await callIpc({
@@ -24,6 +27,7 @@ export function useRenderQueue() {
     } else if (!result.ok) {
       setError(result.message)
     }
+    setLoading(false)
   }, [showError])
 
   useEffect(() => { loadJobs() }, [loadJobs])
@@ -51,5 +55,5 @@ export function useRenderQueue() {
     return () => unsubs.forEach(u => u())
   }, [])
 
-  return { jobs, error, reload: loadJobs }
+  return { jobs, error, loading, reload: loadJobs }
 }

@@ -46,6 +46,8 @@ export interface ElectronAPI {
     read: () => Promise<{ success: boolean; data?: import('@shared/index').AppSettings; error?: string }>
     write: (settings: Record<string, unknown>) => Promise<{ success: boolean; requiresRestart?: boolean; error?: string }>
     validateFfmpeg: (ffmpegPath: string) => Promise<{ success: boolean; data?: { found: boolean; isFile: boolean }; error?: string }>
+    status: () => Promise<{ success: boolean; data?: { valid: boolean; configuredRoot: string | null; activeRoot: string }; error?: string }>
+    pickWorkspace: () => Promise<{ success: boolean; data?: string | null; error?: string }>
   }
   repliz: {
     getCredentialsStatus: () => Promise<import('@shared/errors').IPCResult<import('@shared/index').ReplizCredentialsStatus>>

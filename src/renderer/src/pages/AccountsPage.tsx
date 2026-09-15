@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useContents } from '@/hooks/useContents'
 import { useAccountStore } from '@/stores/app-store'
 import { AccountCard } from '@/components/AccountCard'
 import { AccountEditor } from '@/components/AccountEditor'
+import { QuarantineCard } from '@/components/QuarantineCard'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { LoadingState } from '@/components/ui/LoadingState'
@@ -12,7 +14,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import type { Account } from '@shared/index'
 
 export function AccountsPage() {
-  const { accounts, loading, error, reload } = useAccounts()
+  const { accounts, quarantined, loading, error, reload } = useAccounts()
   const { contents } = useContents()
   const { activeAccountId, setActiveAccount } = useAccountStore()
   const [editorOpen, setEditorOpen] = useState(false)
@@ -39,21 +41,37 @@ export function AccountsPage() {
         <LoadingState label="Loading accounts..." />
       ) : error ? (
         <ErrorState title="Failed to load accounts" onRetry={() => void reload()} />
-      ) : accounts.length === 0 ? (
+      ) : accounts.length === 0 && quarantined.length === 0 ? (
         <EmptyState title="No accounts yet. Create your first account!" />
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {accounts.map(account => (
-            <AccountCard
-              key={account.id}
-              account={account}
-              contentCount={getContentCount(account.id)}
-              isActive={activeAccountId === account.id}
-              onClick={() => setActiveAccount(activeAccountId === account.id ? null : account.id)}
-              onEdit={() => { setEditingAccount(account); setEditorOpen(true) }}
-            />
-          ))}
-        </div>
+        <>
+          {quarantined.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-red-300">
+                <AlertTriangle className="h-4 w-4" />
+                {quarantined.length} broken {quarantined.length === 1 ? 'entry' : 'entries'} (fix the file on disk to recover)
+              </h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {quarantined.map(entry => (
+                  <QuarantineCard key={entry.id} entry={entry} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {accounts.map(account => (
+              <AccountCard
+                key={account.id}
+                account={account}
+                contentCount={getContentCount(account.id)}
+                isActive={activeAccountId === account.id}
+                onClick={() => setActiveAccount(activeAccountId === account.id ? null : account.id)}
+                onEdit={() => { setEditingAccount(account); setEditorOpen(true) }}
+              />
+            ))}
+          </div>
+        </>
       )}
 
       {activeAccountId && (

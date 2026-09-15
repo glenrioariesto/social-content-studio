@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
 
 interface AssetList {
   images: string[]
@@ -25,14 +26,18 @@ export function AssetsPage() {
   const [assets, setAssets] = useState<AssetList>({ images: [], audio: [], video: [], fonts: [] })
   const [activeTab, setActiveTab] = useState<keyof AssetList>('images')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<{ folder: string; name: string } | null>(null)
   const { showSuccess } = useErrorToast()
 
   const loadAssets = useCallback(async () => {
     setLoading(true)
+    setError(null)
     const result = await window.electron.workspace.getAssets()
     if (result.success && result.data) {
       setAssets(result.data as unknown as AssetList)
+    } else {
+      setError(result.error ?? 'Failed to load assets')
     }
     setLoading(false)
   }, [])
@@ -108,6 +113,8 @@ export function AssetsPage() {
 
       {loading ? (
         <LoadingState label="Loading assets..." />
+      ) : error ? (
+        <ErrorState title="Failed to load assets" message={error} onRetry={() => void loadAssets()} />
       ) : currentAssets.length === 0 ? (
         <EmptyState icon={<FolderOpen className="h-10 w-10" />} title={`No ${activeTab} yet`} />
       ) : (

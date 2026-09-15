@@ -59,9 +59,11 @@ const electronAPI = {
   },
 
   settings: {
-    read: () => ipcRenderer.invoke('settings:read'),
-    write: (settings: Record<string, unknown>) => ipcRenderer.invoke('settings:write', settings),
-    validateFfmpeg: (ffmpegPath: string) => ipcRenderer.invoke('settings:validate-ffmpeg', ffmpegPath)
+read: () => ipcRenderer.invoke('settings:read'),
+      write: (settings: Record<string, unknown>) => ipcRenderer.invoke('settings:write', settings),
+      validateFfmpeg: (ffmpegPath: string) => ipcRenderer.invoke('settings:validate-ffmpeg', ffmpegPath),
+      status: () => ipcRenderer.invoke('settings:status'),
+      pickWorkspace: () => ipcRenderer.invoke('settings:pick-workspace')
   },
 
   repliz: {

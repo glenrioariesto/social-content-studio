@@ -1,4 +1,5 @@
 import { useDocument } from './useDocument'
+import { useFsReload } from './useFsReload'
 import { validEntries } from '@/lib/entries'
 import type { Content } from '@shared/index'
 import type { LoadedEntry } from '@shared/loaded-entry'
@@ -23,6 +24,8 @@ export function useContents(filters?: { accountId?: string; status?: string }) {
       .map(e => ({ id: e.id, file: e.file, issues: e.issues }))
     return { contents: validEntries<Content>(entries), quarantined }
   }, [filters?.accountId, filters?.status])
+
+  useFsReload('contents', loaded.reload)
 
   return {
     contents: loaded.data?.contents ?? [],

@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react'
 import { useContents } from '@/hooks/useContents'
 import { useAccounts } from '@/hooks/useAccounts'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { LoadingState } from '@/components/ui/LoadingState'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -21,8 +22,11 @@ export function CalendarPage() {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
-  const { contents } = useContents()
-  const { accounts } = useAccounts()
+  const { contents, loading: contentsLoading, error: contentsError, reload: reloadContents } = useContents()
+  const { accounts, loading: accountsLoading, error: accountsError, reload: reloadAccounts } = useAccounts()
+
+  const loading = contentsLoading || accountsLoading
+  const error = contentsError || accountsError
 
   const { daysInMonth, startDay } = useMemo(() => getDaysInMonth(year, month), [year, month])
 
@@ -82,6 +86,20 @@ export function CalendarPage() {
           </Button>
         </div>
       </div>
+
+      {loading && (
+        <LoadingState label="Loading calendar..." />
+      )}
+
+      {error && !loading && (
+        <Card className="flex items-center justify-between border-amber-800/40 bg-amber-950/20 p-4 text-xs text-amber-200">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            {error}
+          </span>
+          <button onClick={() => { reloadContents(); reloadAccounts() }} className="text-amber-300 underline hover:text-amber-100">Retry</button>
+        </Card>
+      )}
 
       <Card>
         <div className="grid grid-cols-7 border-b border-zinc-800">

@@ -10,29 +10,41 @@ import { Badge } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
-import type { Content, Account } from '@shared/index'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { allowedNextStatuses, statusToLabel } from '@/lib/status-filters'
+import type { Content, Account, ContentStatus } from '@shared/index'
 
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [content, setContent] = useState<Content | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [transitioningTo, setTransitioningTo] = useState<ContentStatus | null>(null)
   const { accounts } = useAccounts()
   const { showSuccess, showError } = useErrorToast()
 
   const account = content ? accounts.find(a => a.id === content.accountId) : null
+  const nextStatuses = content ? allowedNextStatuses(content.status) : []
 
-  useEffect(() => {
+  const load = () => {
     if (!id) return
     setLoading(true)
+    setError(null)
     window.electron.workspace.getContent(id).then(result => {
       if (result.success && result.data && result.data.kind === 'valid') {
         setContent(result.data.data)
+      } else if (!result.success) {
+        setError(result.error ?? 'Failed to load content')
       }
       setLoading(false)
     })
+  }
+
+  useEffect(() => {
+    load()
   }, [id])
 
   const handleDelete = async () => {
@@ -55,8 +67,31 @@ export function ContentDetailPage() {
     }
   }
 
+  const handleTransition = async (to: ContentStatus) => {
+    if (!id) return
+    setTransitioningTo(to)
+    const result = await window.electron.workspace.updateContent(id, { status: to })
+    setTransitioningTo(null)
+    if (result.success) {
+      showSuccess(`Moved to ${statusToLabel(to)}`)
+      load()
+    } else {
+      showError(result.error ?? 'Transition not allowed')
+    }
+  }
+
   if (loading) {
     return <LoadingState label="Loading..." />
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="Failed to load content"
+        message={error}
+        onRetry={load}
+      />
+    )
   }
 
   if (!content) {
@@ -104,6 +139,30 @@ export function ContentDetailPage() {
               </div>
             </div>
           </div>
+
+          <Card className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-zinc-300">Status</h3>
+              <StatusBadge status={content.status} size="md" />
+            </div>
+            {nextStatuses.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {nextStatuses.map(to => (
+                  <Button
+                    key={to}
+                    variant="secondary"
+                    size="sm"
+                    disabled={transitioningTo !== null}
+                    onClick={() => void handleTransition(to)}
+                  >
+                    {transitioningTo === to ? 'Moving...' : `Move to ${statusToLabel(to)}`}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-500">No further transitions allowed from this status.</p>
+            )}
+          </Card>
 
           <Card className="p-4 space-y-3">
             <h3 className="text-sm font-semibold text-zinc-300">Details</h3>

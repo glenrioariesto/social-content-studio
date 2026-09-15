@@ -4,9 +4,10 @@ import { readFile, readdir, writeFile, stat } from 'fs/promises'
 import { existsSync, statSync } from 'fs'
 import { spawn } from 'child_process'
 import AdmZip from 'adm-zip'
+import { dialog } from 'electron'
 import { logInfo, logError } from '@main/errors'
 import { createAppError } from '@shared/errors'
-import { getWorkspaceRoot } from '@main/services/workspace-root'
+import { getWorkspaceRoot, BOOTSTRAP_SETTINGS_PATH } from '@main/services/workspace-root'
 import { assertInsideWorkspace } from '@main/services/path-guard'
 import { validateZipEntries } from '@main/services/zip-entries'
 import { atomicWriteJson } from '@main/services/persistence'
@@ -70,9 +71,8 @@ export function initBackupIpc(): void {
   }, 'FS_READ_ERROR')
 
   safeIpcMain('settings:read', async () => {
-    const root = ws()
     try {
-      const raw = await readFile(join(root, 'config', 'settings.json'), 'utf-8')
+      const raw = await readFile(BOOTSTRAP_SETTINGS_PATH, 'utf-8')
       return { success: true, data: JSON.parse(raw) }
     } catch {
       return { success: true, data: { defaultPreset: 'instagram-reels', maxConcurrentRender: 1 } }
@@ -91,10 +91,52 @@ export function initBackupIpc(): void {
         return { success: false, error: 'workspacePath does not exist', errorCode: 'FS_NOT_FOUND' }
       }
     }
-    const root = ws()
-    await atomicWriteJson(join(root, 'config', 'settings.json'), settings) // CON-001: atomic
+    // CON-001 + REQ-004: the bootstrap settings file (cwd/workspace) is the single
+    // pointer to the active workspace; writing anywhere else would make a second
+    // switch or a revert invisible to getWorkspaceRoot() on the next restart.
+    await atomicWriteJson(BOOTSTRAP_SETTINGS_PATH, settings) // CON-001: atomic
     return { success: true, requiresRestart: true }
   }, 'FS_WRITE_ERROR')
+
+  // REQ-004 / AC-008: non-throwing workspace probe. The renderer uses this on
+  // launch to decide whether to show the guided setup state. It must never throw,
+  // even when the configured folder is missing/invalid.
+  safeIpcMain('settings:status', async () => {
+    let configured: string | undefined
+    try {
+      const raw = await readFile(BOOTSTRAP_SETTINGS_PATH, 'utf-8')
+      const parsed = JSON.parse(raw) as { workspacePath?: string }
+      if (parsed && typeof parsed.workspacePath === 'string' && parsed.workspacePath.length > 0) {
+        configured = parsed.workspacePath
+      }
+    } catch {
+      // no bootstrap settings yet — first run
+    }
+
+    const fallbackRoot = join(process.cwd(), 'workspace')
+
+    if (!configured) {
+      return { success: true, data: { valid: true, configuredRoot: null, activeRoot: fallbackRoot } }
+    }
+
+    try {
+      if (!existsSync(configured) || !statSync(configured).isDirectory()) {
+        return { success: true, data: { valid: false, configuredRoot: configured, activeRoot: fallbackRoot } }
+      }
+      return { success: true, data: { valid: true, configuredRoot: configured, activeRoot: configured } }
+    } catch {
+      return { success: true, data: { valid: false, configuredRoot: configured, activeRoot: fallbackRoot } }
+    }
+  }, 'FS_READ_ERROR')
+
+  // REQ-004 / AC-008: native folder picker for the guided setup state. Returns the
+  // chosen absolute path or null if cancelled. (SEC-001 exempt: explicit user intent
+  // via the native dialog is the sole selector of the workspace root.)
+  safeIpcMain('settings:pick-workspace', async () => {
+    const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    if (result.canceled || result.filePaths.length === 0) return { success: true, data: null }
+    return { success: true, data: result.filePaths[0] }
+  }, 'FS_READ_ERROR')
 
   safeIpcMain('settings:validate-ffmpeg', async (_event, ffmpegPath: string) => {
     // NIT-08: report honestly. `isFile` (not `executable`) — a non-directory

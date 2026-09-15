@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Sidebar } from './components/layout/Sidebar'
 import { TitleBar } from './components/layout/TitleBar'
@@ -14,8 +15,35 @@ import { ResourcesPage } from './pages/ResourcesPage'
 import { BatchRenderPage } from './pages/BatchRenderPage'
 import { LogsPage } from './pages/LogsPage'
 import { AgentStudioPage } from './pages/AgentStudioPage'
+import { WorkspaceSetupPage } from './pages/WorkspaceSetupPage'
+import { LoadingState } from './components/ui/LoadingState'
+
+interface WorkspaceStatus {
+  valid: boolean
+  configuredRoot: string | null
+  activeRoot: string
+}
 
 export function App() {
+  const [status, setStatus] = useState<WorkspaceStatus | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    window.electron.settings.status().then(result => {
+      if (!cancelled && result.success && result.data) setStatus(result.data)
+      else if (!cancelled) setStatus({ valid: true, configuredRoot: null, activeRoot: '' })
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  if (status === null) {
+    return <LoadingState label="Checking workspace..." />
+  }
+
+  if (!status.valid) {
+    return <WorkspaceSetupPage configuredRoot={status.configuredRoot} onResolved={() => window.location.reload()} />
+  }
+
   return (
     <div className="flex h-screen flex-col">
       <TitleBar />

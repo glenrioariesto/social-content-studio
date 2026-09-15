@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
 
 interface LogEntry {
   timestamp: string
@@ -18,9 +19,11 @@ export function LogsPage() {
   const [selectedFile, setSelectedFile] = useState('')
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
 
   const loadLogFiles = useCallback(async () => {
+    setError(null)
     const result = await window.electron.fs.readdir('workspace/config/logs')
     if (result.success && result.data) {
       const files = result.data
@@ -30,12 +33,15 @@ export function LogsPage() {
         .reverse()
       setLogFiles(files)
       if (files.length > 0 && !selectedFile) setSelectedFile(files[0])
+    } else {
+      setError(result.error ?? 'Failed to load log files')
     }
   }, [selectedFile])
 
   const loadLogContent = useCallback(async (fileName: string) => {
     if (!fileName) return
     setLoading(true)
+    setError(null)
     const result = await window.electron.fs.readFile(`workspace/config/logs/${fileName}`)
     if (result.success && result.data) {
       const lines = result.data.split('\n').filter(Boolean)
@@ -55,6 +61,8 @@ export function LogsPage() {
         }
       }
       setEntries(parsed.reverse())
+    } else {
+      setError(result.error ?? `Failed to read ${fileName}`)
     }
     setLoading(false)
   }, [])
@@ -110,6 +118,12 @@ export function LogsPage() {
         <Card>
           {loading ? (
             <LoadingState label="Loading..." />
+          ) : error ? (
+            <ErrorState
+              title="Failed to load logs"
+              message={error}
+              onRetry={() => { loadLogFiles(); if (selectedFile) loadLogContent(selectedFile) }}
+            />
           ) : entries.length === 0 ? (
             <EmptyState icon={<FileText className="h-8 w-8" />} title="No log entries" />
           ) : (

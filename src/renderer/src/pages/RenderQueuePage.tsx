@@ -2,10 +2,11 @@ import { useRenderQueue } from '@/hooks/useRenderQueue'
 import { Clapperboard, CheckCircle, XCircle, Clock, Loader } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 
 export function RenderQueuePage() {
-  const { jobs, error } = useRenderQueue()
+  const { jobs, error, loading, reload } = useRenderQueue()
 
   const active = jobs.filter(j => j.status === 'rendering' || j.status === 'waiting')
   const completed = jobs.filter(j => j.status === 'completed')
@@ -21,10 +22,13 @@ export function RenderQueuePage() {
       {error && (
         <Card className="border-amber-800/40 bg-amber-950/20 p-4 text-xs text-amber-200">
           {error}
+          <button onClick={() => void reload()} className="ml-2 text-amber-300 underline hover:text-amber-100">Retry</button>
         </Card>
       )}
 
-      {jobs.length === 0 ? (
+      {loading ? (
+        <LoadingState label="Loading render queue..." />
+      ) : jobs.length === 0 ? (
         <EmptyState
           icon={<Clapperboard className="h-10 w-10" />}
           title="No render jobs yet"

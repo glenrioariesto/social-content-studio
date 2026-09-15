@@ -12,7 +12,8 @@ mock.module('C:/project/social-content-studio/src/main/errors.ts', () => ({
 }))
 
 mock.module('C:/project/social-content-studio/src/main/services/workspace-root.ts', () => ({
-  getWorkspaceRoot: () => wsRoot
+  getWorkspaceRoot: () => wsRoot,
+  BOOTSTRAP_SETTINGS_PATH: join(process.cwd(), 'workspace', 'config', 'settings.json')
 }))
 
 mock.module('electron', () => ({

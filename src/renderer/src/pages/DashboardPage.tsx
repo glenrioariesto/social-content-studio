@@ -3,15 +3,20 @@ import { useAccounts } from '@/hooks/useAccounts'
 import { useTemplates } from '@/hooks/useTemplates'
 import { useAccountStore } from '@/stores/app-store'
 import { Card } from '@/components/ui/Card'
-import { FolderOpen, FileVideo, Layers, Users, ArrowRight, Zap, Calendar } from 'lucide-react'
+import { LoadingState } from '@/components/ui/LoadingState'
+import { FolderOpen, FileVideo, Layers, Users, ArrowRight, Zap, Calendar, AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 export function DashboardPage() {
-  const { accounts } = useAccounts()
-  const { contents } = useContents()
-  const { templates } = useTemplates()
+  const { accounts, loading: accountsLoading, error: accountsError, reload: reloadAccounts } = useAccounts()
+  const { contents, loading: contentsLoading, error: contentsError, reload: reloadContents } = useContents()
+  const { templates, loading: templatesLoading, error: templatesError, reload: reloadTemplates } = useTemplates()
   const { setActiveAccount } = useAccountStore()
   const navigate = useNavigate()
+
+  const loading = accountsLoading || contentsLoading || templatesLoading
+  const error = accountsError || contentsError || templatesError
+  const reload = () => { reloadAccounts(); reloadContents(); reloadTemplates() }
 
   const statusCounts = contents.reduce(
     (acc, c) => {
@@ -55,6 +60,20 @@ export function DashboardPage() {
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="mt-1 text-sm text-zinc-400">Social Content Production Studio</p>
       </div>
+
+      {loading && (
+        <LoadingState label="Refreshing dashboard..." />
+      )}
+
+      {error && !loading && (
+        <Card className="flex items-center justify-between border-amber-800/40 bg-amber-950/20 p-4 text-xs text-amber-200">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            {error}
+          </span>
+          <button onClick={() => void reload()} className="text-amber-300 underline hover:text-amber-100">Retry</button>
+        </Card>
+      )}
 
       <div className="grid grid-cols-5 gap-4">
         {[

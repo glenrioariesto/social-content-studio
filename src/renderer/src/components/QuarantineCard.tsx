@@ -1,8 +1,8 @@
 import { AlertTriangle, FileVideo } from 'lucide-react'
-import type { QuarantinedEntry } from '@/hooks/useContents'
+import type { ValidationIssue } from '@shared/validators'
 
 interface QuarantineCardProps {
-  entry: QuarantinedEntry
+  entry: { id: string; file: string; issues: ValidationIssue[] }
 }
 
 /**

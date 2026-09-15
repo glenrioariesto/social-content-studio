@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { useDocument } from './useDocument'
+import { useFsReload } from './useFsReload'
 import { validEntries } from '@/lib/entries'
 import type { TemplateDefinition } from '@shared/template'
 import type { LoadedEntry } from '@shared/loaded-entry'
@@ -10,8 +11,14 @@ export function useTemplates() {
     if (!result.success) {
       throw new Error(result.error ?? 'Failed to load templates')
     }
-    return validEntries<TemplateDefinition>((result.data ?? []) as LoadedEntry<TemplateDefinition>[])
+    const entries = (result.data ?? []) as LoadedEntry<TemplateDefinition>[]
+    const quarantined = entries
+      .filter((e): e is Extract<LoadedEntry<TemplateDefinition>, { kind: 'invalid' }> => e.kind === 'invalid')
+      .map(e => ({ id: e.id, file: e.file, issues: e.issues }))
+    return { templates: validEntries<TemplateDefinition>(entries), quarantined }
   })
+
+  useFsReload('templates', loaded.reload)
 
   const createTemplate = useCallback(async (template: TemplateDefinition) => {
     const dir = `workspace/templates/${template.id}`
@@ -34,7 +41,8 @@ export function useTemplates() {
   }, [loaded.reload])
 
   return {
-    templates: loaded.data ?? [],
+    templates: loaded.data?.templates ?? [],
+    quarantined: loaded.data?.quarantined ?? [],
     loading: loaded.loading,
     error: loaded.error,
     reload: loaded.reload,

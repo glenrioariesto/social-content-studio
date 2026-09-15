@@ -19,6 +19,8 @@ interface AppSettings {
 export function SettingsPage() {
   const [backupInfo, setBackupInfo] = useState<BackupInfo | null>(null)
   const [settings, setSettings] = useState<AppSettings>({ defaultPreset: 'instagram-reels', maxConcurrentRender: 1 })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [workspaceDir, setWorkspaceDir] = useState('')
   const [ffmpegPath, setFfmpegPath] = useState('')
@@ -27,6 +29,8 @@ export function SettingsPage() {
   const { showSuccess, showInfo } = useErrorToast()
 
   const loadInfo = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     const [infoRes, settingsRes] = await Promise.all([
       window.electron.backup.info(),
       window.electron.settings.read()
@@ -38,6 +42,10 @@ export function SettingsPage() {
       setWorkspaceDir(data.workspacePath || '')
       setFfmpegPath(data.ffmpegPath || '')
     }
+    if (!infoRes.success || !settingsRes.success) {
+      setError((infoRes.error || settingsRes.error) ?? 'Failed to load settings')
+    }
+    setLoading(false)
   }, [])
 
   useEffect(() => { loadInfo() }, [loadInfo])
@@ -90,6 +98,23 @@ export function SettingsPage() {
         <Card className="flex items-center gap-2 border-amber-800/50 bg-amber-950/30 p-4 text-sm text-amber-300">
           <AlertTriangle className="h-4 w-4" />
           The workspace folder change takes effect after you restart the application.
+        </Card>
+      )}
+
+      {loading && (
+        <Card className="flex items-center gap-2 border-zinc-800 bg-zinc-900/60 p-4 text-sm text-zinc-400">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          Loading settings...
+        </Card>
+      )}
+
+      {error && (
+        <Card className="flex items-center justify-between border-red-800/40 bg-red-950/20 p-4 text-xs text-red-300">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            {error}
+          </span>
+          <button onClick={() => void loadInfo()} className="text-red-300 underline hover:text-red-100">Retry</button>
         </Card>
       )}
 

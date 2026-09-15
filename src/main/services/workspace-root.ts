@@ -3,7 +3,8 @@ import { join } from 'path'
 import { logInfo } from '@main/errors'
 import { createAppError } from '@shared/errors'
 
-const SETTINGS_PATH = join(process.cwd(), 'workspace', 'config', 'settings.json')
+/** Bootstrap settings file — always lives at cwd/workspace, regardless of configured workspacePath. */
+export const BOOTSTRAP_SETTINGS_PATH = join(process.cwd(), 'workspace', 'config', 'settings.json')
 
 /**
  * Single source of truth for the Workspace Root (Spec REQ-004 / CON-002).
@@ -18,7 +19,7 @@ const SETTINGS_PATH = join(process.cwd(), 'workspace', 'config', 'settings.json'
 export function getWorkspaceRoot(): string {
   let configured: string | undefined
   try {
-    const raw = readFileSync(SETTINGS_PATH, 'utf-8')
+    const raw = readFileSync(BOOTSTRAP_SETTINGS_PATH, 'utf-8')
     const parsed = JSON.parse(raw) as { workspacePath?: string }
     if (parsed && typeof parsed.workspacePath === 'string' && parsed.workspacePath.length > 0) {
       configured = parsed.workspacePath

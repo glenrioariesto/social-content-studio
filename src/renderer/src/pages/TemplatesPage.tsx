@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { AlertTriangle, Plus, Trash2, Layers } from 'lucide-react'
 import { useTemplates } from '@/hooks/useTemplates'
 import { useAccounts } from '@/hooks/useAccounts'
+import { QuarantineCard } from '@/components/QuarantineCard'
 import { TemplateEditor } from '@/components/TemplateEditor'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -8,8 +10,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/Field'
 import { Select } from '@/components/ui/Field'
 import { LoadingState } from '@/components/ui/LoadingState'
+import { ErrorState } from '@/components/ui/ErrorState'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { Plus, Trash2, Layers } from 'lucide-react'
 import type { TemplateDefinition } from '@shared/template'
 import type { TemplateType } from '@shared/index'
 
@@ -21,7 +23,7 @@ const TEMPLATE_TYPES = [
 ]
 
 export function TemplatesPage() {
-  const { templates, loading, createTemplate, deleteTemplate } = useTemplates()
+  const { templates, quarantined, loading, error, reload, createTemplate, deleteTemplate } = useTemplates()
   const { accounts } = useAccounts()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
@@ -103,47 +105,65 @@ export function TemplatesPage() {
 
       {loading ? (
         <LoadingState label="Loading templates..." />
-      ) : templates.length === 0 ? (
+      ) : error ? (
+        <ErrorState title="Failed to load templates" message={error} onRetry={() => void reload()} />
+      ) : templates.length === 0 && quarantined.length === 0 ? (
         <EmptyState
           icon={<Layers className="h-10 w-10" />}
           title="No templates yet. Create your first template!"
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {templates.map(template => (
-            <Card
-              key={template.id}
-              className="group p-4 transition-all hover:border-zinc-600"
-            >
-              <div className="mb-3 flex items-start justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold">{template.name}</h3>
-                  <p className="text-xs text-zinc-500">{template.type}</p>
+        <>
+          {quarantined.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-red-300">
+                <AlertTriangle className="h-4 w-4" />
+                {quarantined.length} broken {quarantined.length === 1 ? 'entry' : 'entries'} (fix the file on disk to recover)
+              </h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {quarantined.map(entry => (
+                  <QuarantineCard key={entry.id} entry={entry} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {templates.map(template => (
+              <Card
+                key={template.id}
+                className="group p-4 transition-all hover:border-zinc-600"
+              >
+                <div className="mb-3 flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">{template.name}</h3>
+                    <p className="text-xs text-zinc-500">{template.type}</p>
+                  </div>
+                  <Button
+                    onClick={() => setPendingDelete(template.id)}
+                    className="rounded p-1 text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-transparent hover:text-red-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => setPendingDelete(template.id)}
-                  className="rounded p-1 text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-transparent hover:text-red-400"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
+
+                <div className="mb-3 aspect-[9/16] overflow-hidden rounded-lg bg-zinc-800/50">
+                  <div className="flex h-full items-center justify-center text-xs text-zinc-600">
+                    {template.output?.width}×{template.output?.height}
+                  </div>
+                </div>
+
+                {template.accountId && (
+                  <p className="mb-2 text-[10px] text-zinc-600">Account: {template.accountId}</p>
+                )}
+
+                <Button variant="outline" className="w-full text-xs" onClick={() => setEditingId(template.id)}>
+                  Open Editor
                 </Button>
-              </div>
-
-              <div className="mb-3 aspect-[9/16] overflow-hidden rounded-lg bg-zinc-800/50">
-                <div className="flex h-full items-center justify-center text-xs text-zinc-600">
-                  {template.output?.width}×{template.output?.height}
-                </div>
-              </div>
-
-              {template.accountId && (
-                <p className="mb-2 text-[10px] text-zinc-600">Account: {template.accountId}</p>
-              )}
-
-              <Button variant="outline" className="w-full text-xs" onClick={() => setEditingId(template.id)}>
-                Open Editor
-              </Button>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
 
       <ConfirmDialog

@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { useDocument } from './useDocument'
+import { useFsReload } from './useFsReload'
 import type { Resource } from '@shared/resource'
 
 export function useResources() {
@@ -10,6 +11,8 @@ export function useResources() {
     }
     return result.data ?? []
   })
+
+  useFsReload('resources', loaded.reload)
 
   const download = useCallback(async (url: string) => {
     const result = await window.electron.resource.download(url)

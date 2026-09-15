@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AlertTriangle } from 'lucide-react'
 import { useContents } from '@/hooks/useContents'
 import { useAccounts } from '@/hooks/useAccounts'
@@ -10,21 +11,14 @@ import { Button } from '@/components/ui/Button'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { EmptyState } from '@/components/ui/EmptyState'
-import type { ContentStatus } from '@shared/index'
+import { Select } from '@/components/ui/Field'
+import { buildStatusOptions, statusToLabel, allowedNextStatuses, type StatusFilterValue } from '@/lib/status-filters'
 
-const STATUS_FILTERS: Array<{ label: string; value: ContentStatus | 'all' }> = [
-  { label: 'All', value: 'all' },
-  { label: 'Idea', value: 'idea' },
-  { label: 'Draft', value: 'draft' },
-  { label: 'Ready', value: 'ready' },
-  { label: 'Rendering', value: 'rendering' },
-  { label: 'Ready to Post', value: 'ready-to-post' },
-  { label: 'Posted', value: 'posted' },
-  { label: 'Failed', value: 'failed' }
-]
+const STATUS_OPTIONS = buildStatusOptions()
 
 export function ContentPage() {
-  const [statusFilter, setStatusFilter] = useState<ContentStatus | 'all'>('all')
+  const navigate = useNavigate()
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('all')
   const [showWizard, setShowWizard] = useState(false)
   const { activeAccountId } = useAccountStore()
   const { contents, loading, error, quarantined, reload } = useContents(
@@ -57,20 +51,22 @@ export function ContentPage() {
         <ContentCreationWizard onClose={() => { setShowWizard(false); void reload() }} />
       )}
 
-      <div className="flex gap-2">
-        {STATUS_FILTERS.map(filter => (
-          <button
-            key={filter.value}
-            onClick={() => setStatusFilter(filter.value)}
-            className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
-              statusFilter === filter.value
-                ? 'border-indigo-600/50 bg-indigo-950/30 text-indigo-300'
-                : 'border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
-            }`}
-          >
-            {filter.label}
-          </button>
-        ))}
+      <div className="flex items-center gap-3">
+        <label className="text-sm text-zinc-400">Status</label>
+        <Select
+          className="w-48"
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value as StatusFilterValue)}
+        >
+          {STATUS_OPTIONS.map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </Select>
+        {statusFilter !== 'all' && (
+          <p className="text-xs text-zinc-500">
+            Can move to: {allowedNextStatuses(statusFilter).map(statusToLabel).join(', ') || '—'}
+          </p>
+        )}
       </div>
 
       {loading ? (
@@ -110,6 +106,7 @@ export function ContentPage() {
                   key={content.id}
                   content={content}
                   account={getAccount(content.accountId)}
+                  onClick={() => navigate(`/content/${content.id}`)}
                 />
               ))}
             </div>
