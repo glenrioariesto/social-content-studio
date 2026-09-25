@@ -55,3 +55,43 @@ export async function classifyFfmpegError(stderr: string): Promise<string | null
     return null
   }
 }
+
+/**
+ * Uses AI to semantically categorize an asset based on its filename.
+ */
+export async function classifyAssetType(filename: string): Promise<'images' | 'audio' | 'video' | 'fonts' | null> {
+  try {
+    const rawSettings = await readFile(BOOTSTRAP_SETTINGS_PATH, 'utf-8').catch(() => '{}')
+    const settings = JSON.parse(rawSettings)
+    
+    if (!settings.typesafeApiKey) return null
+
+    logInfo(`TypeSafe AI: Categorizing asset "${filename}"...`)
+
+    const response = await fetch('https://api.typesafe.ai/v1/choice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.typesafeApiKey}`
+      },
+      body: JSON.stringify({
+        question: "Based on this filename, what is the semantic asset category?",
+        state: { filename },
+        options: [
+          { value: "images", description: "Visual graphics, photos, overlays (png, jpg, webp)" },
+          { value: "audio", description: "Sound effects, background music, voiceovers (mp3, wav)" },
+          { value: "video", description: "B-roll, clips, animations (mp4, webm)" },
+          { value: "fonts", description: "Typography files (ttf, otf, woff)" }
+        ]
+      })
+    })
+
+    if (!response.ok) return null
+    
+    const data = await response.json() as TypesafeChoiceResult
+    return data.choice as 'images' | 'audio' | 'video' | 'fonts'
+
+  } catch {
+    return null
+  }
+}

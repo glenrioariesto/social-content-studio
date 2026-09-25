@@ -55,10 +55,17 @@ export function AssetsPage() {
         reader.onload = async () => {
           const ext = file.name.split('.').pop() || ''
           let folder = 'images'
-          if (['mp3', 'wav', 'ogg', 'aac'].includes(ext)) folder = 'audio'
-          else if (['mp4', 'webm', 'avi', 'mov'].includes(ext)) folder = 'video'
-          else if (['ttf', 'otf', 'woff', 'woff2'].includes(ext)) folder = 'fonts'
-
+          
+          const aiCategory = await window.electron.ai.classifyAsset(file.name)
+          
+          if (aiCategory.success && aiCategory.data) {
+            folder = aiCategory.data
+          } else {
+            // Fallback heuristics
+            if (['mp3', 'wav', 'ogg', 'aac'].includes(ext)) folder = 'audio'
+            else if (['mp4', 'webm', 'avi', 'mov'].includes(ext)) folder = 'video'
+            else if (['ttf', 'otf', 'woff', 'woff2'].includes(ext)) folder = 'fonts'
+          }
           await window.electron.fs.writeFile(`workspace/assets/${folder}/${file.name}`, reader.result as string)
           await loadAssets()
         }

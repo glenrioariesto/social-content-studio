@@ -71,6 +71,9 @@ read: () => ipcRenderer.invoke('settings:read'),
     saveCredentials: (accessKey: string, secretKey: string) => ipcRenderer.invoke('repliz:save-credentials', accessKey, secretKey),
     verifyAccount: (accountId: string, replizId: string) => ipcRenderer.invoke('repliz:verify-account', accountId, replizId)
   },
+  ai: {
+    classifyAsset: (filename: string) => ipcRenderer.invoke('ai:classify-asset', filename)
+  },
 
   agent: {
     listTools: () => ipcRenderer.invoke('agent:list-tools'),

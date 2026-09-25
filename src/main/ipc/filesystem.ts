@@ -1,3 +1,4 @@
+import { classifyAssetType } from '@main/services/typesafe-client'
 import { type BrowserWindow } from 'electron'
 import { readFile, writeFile, readdir, mkdir, rm, stat, access, realpath } from 'fs/promises'
 import { join, sep, dirname, relative } from 'path'
@@ -327,5 +328,10 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
       }
     }
     return { success: true, data: results }
+  }, 'FS_READ_ERROR')
+
+  safeIpcMain('ai:classify-asset', async (_event, filename: string) => {
+    const category = await classifyAssetType(filename)
+    return { success: true, data: category }
   }, 'FS_READ_ERROR')
 }

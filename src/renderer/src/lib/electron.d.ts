@@ -64,6 +64,9 @@ export interface ElectronAPI {
     listTools: () => Promise<import('@shared/errors').IPCResult<import('@shared/agent').AgentToolDef[]>>
     invoke: (req: import('@shared/agent').AgentInvokeRequest) => Promise<import('@shared/errors').IPCResult<unknown>>
   }
+  ai: {
+    classifyAsset: (filename: string) => Promise<import('@shared/errors').IPCResult<'images' | 'audio' | 'video' | 'fonts' | null>>
+  }
   resource: {
     list: () => Promise<import('@shared/errors').IPCResult<import('@shared/resource').Resource[]>>
     download: (url: string, fileName?: string) => Promise<import('@shared/errors').IPCResult<import('@shared/resource').Resource>>
