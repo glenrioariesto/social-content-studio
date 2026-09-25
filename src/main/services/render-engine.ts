@@ -1,6 +1,7 @@
 import { spawn } from 'child_process'
 import { logInfo, logError } from '@main/errors'
 import { createAppError } from '@shared/errors'
+import { classifyFfmpegError } from './typesafe-client'
 
 export interface RenderOptions {
   inputPath: string
@@ -98,9 +99,20 @@ export async function renderVideo(opts: RenderOptions): Promise<{ success: boole
           opts.onProgress?.(100)
           resolve({ success: true, outputPath: opts.outputPath })
         } else {
-          const err = createAppError('FFMPEG_ENCODING_ERROR', `FFmpeg exited with code ${code}`, 'main', stderr.slice(-500))
-          logError(err)
-          resolve({ success: false, error: `FFmpeg error (code ${code})` })
+          const rawStderr = stderr.slice(-500)
+          
+          classifyFfmpegError(rawStderr).then((choice) => {
+            let userMessage = `FFmpeg error (code ${code})`
+            
+            if (choice === 'codec_unsupported') userMessage = "Format video sumber tidak didukung oleh preset render ini."
+            else if (choice === 'file_corrupted') userMessage = "File video sumber rusak atau tidak dapat dibaca."
+            else if (choice === 'out_of_memory') userMessage = "Kehabisan memori saat melakukan render video."
+            else if (choice === 'unknown') userMessage = `Gagal memproses video (FFmpeg Error Code: ${code}).`
+            
+            const err = createAppError('FFMPEG_ENCODING_ERROR', userMessage, 'main', rawStderr)
+            logError(err)
+            resolve({ success: false, error: userMessage })
+          })
         }
       })
 
