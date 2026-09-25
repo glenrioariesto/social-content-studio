@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app } from 'electron'
 import { appendFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { createAppError, type AppError } from '@shared/errors'
@@ -54,12 +54,12 @@ export function initMainErrorHandlers(): void {
     console.error('[Main] Unhandled Rejection:', reason)
   })
 
-  app.on('render-process-gone', async (_event: any, details: any) => {
+  app.on('render-process-gone', async (_event, _webContents, details) => {
     const appErr = createAppError('RENDERER_CRASH', `Renderer crashed: ${details?.reason || 'unknown'}`, 'main', details)
     await writeLog('RENDERER_CRASH', appErr)
   })
 
-  app.on('child-process-gone', async (_event: any, details: any) => {
+  app.on('child-process-gone', async (_event, details) => {
     const appErr = createAppError('UNKNOWN_ERROR', `Child process exited: ${details?.type || 'unknown'}`, 'main', details)
     await writeLog('CHILD_PROCESS_GONE', appErr)
   })
