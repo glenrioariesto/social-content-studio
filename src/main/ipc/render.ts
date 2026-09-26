@@ -137,6 +137,11 @@ export function initRenderIpc(mainWindow: BrowserWindow): void {
     return { success: ok }
   }, 'RENDER_FAILED')
 
+  safeIpcMain('render:remove', async (_event, jobId: string) => {
+    const ok = await renderQueue.removeJob(jobId)
+    return { success: ok }
+  }, 'RENDER_FAILED')
+
   safeIpcMain('render:jobs', async () => {
     await renderQueue.ensureReady()
     const jobs: RenderJobSummary[] = renderQueue.getAllJobs().map(j => ({
@@ -146,7 +151,8 @@ export function initRenderIpc(mainWindow: BrowserWindow): void {
       progress: j.progress,
       error: j.error,
       createdAt: j.createdAt,
-      completedAt: j.completedAt
+      completedAt: j.completedAt,
+      outputPath: j.options.outputPath
     }))
     return { success: true, data: jobs }
   }, 'RENDER_FAILED')

@@ -75,7 +75,7 @@ export function ContentPage() {
         <ErrorState
           title="Failed to load content"
           message={error}
-          onRetry={() => window.location.reload()}
+          onRetry={() => void reload()}
         />
       ) : (
         <>

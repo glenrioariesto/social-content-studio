@@ -30,6 +30,33 @@ export function useRenderQueue() {
     setLoading(false)
   }, [showError])
 
+  const cancel = useCallback(async (id: string) => {
+    if (!window.electron?.render) return
+    const res = await callIpc({
+      call: () => window.electron.render.cancel(id),
+      showError,
+      errorPrefix: 'Gagal membatalkan render'
+    })
+    if (res.ok) await loadJobs()
+  }, [showError, loadJobs])
+
+  const remove = useCallback(async (id: string) => {
+    if (!window.electron?.render) return
+    const res = await callIpc({
+      call: () => window.electron.render.remove(id),
+      showError,
+      errorPrefix: 'Gagal menghapus render job'
+    })
+    if (res.ok) await loadJobs()
+  }, [showError, loadJobs])
+
+  const clearFinished = useCallback(async () => {
+    const finished = jobs.filter(j => j.status === 'completed' || j.status === 'failed')
+    for (const job of finished) {
+      await remove(job.id)
+    }
+  }, [jobs, remove])
+
   useEffect(() => { loadJobs() }, [loadJobs])
 
   useEffect(() => {
@@ -55,5 +82,5 @@ export function useRenderQueue() {
     return () => unsubs.forEach(u => u())
   }, [])
 
-  return { jobs, error, loading, reload: loadJobs }
+  return { jobs, error, loading, reload: loadJobs, cancel, remove, clearFinished }
 }

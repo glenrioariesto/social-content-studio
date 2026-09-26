@@ -160,7 +160,10 @@ export function initAccountsIpc(): void {
       const logoFile = entries.find(f => /^logo\.(png|jpe?g|webp|svg)$/i.test(f))
       if (!logoFile) return ok(null)
       const abs = join(root, 'accounts', id, 'assets', logoFile)
-      return ok('file://' + abs.replace(/\\/g, '/'))
+      const data = await readFile(abs)
+      const ext = logoFile.split('.').pop()?.toLowerCase() || 'png'
+      const mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`
+      return ok(`data:${mimeType};base64,${data.toString('base64')}`)
     } catch {
       return ok(null)
     }

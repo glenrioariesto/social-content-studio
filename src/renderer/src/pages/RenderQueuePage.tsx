@@ -1,12 +1,19 @@
 import { useRenderQueue } from '@/hooks/useRenderQueue'
-import { Clapperboard, CheckCircle, XCircle, Clock, Loader } from 'lucide-react'
+import { useContents } from '@/hooks/useContents'
+import { Clapperboard, CheckCircle, XCircle, Clock, Loader, Trash2, X, Folder } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
-
 export function RenderQueuePage() {
-  const { jobs, error, loading, reload } = useRenderQueue()
+  const { jobs, error, loading, reload, cancel, remove, clearFinished } = useRenderQueue()
+  const { contents } = useContents()
+
+  const getContentTitle = (id: string) => {
+    const c = contents.find(c => c.id === id)
+    return c ? c.title : id
+  }
 
   const active = jobs.filter(j => j.status === 'rendering' || j.status === 'waiting')
   const completed = jobs.filter(j => j.status === 'completed')
@@ -14,9 +21,16 @@ export function RenderQueuePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Render Queue</h1>
-        <p className="mt-1 text-sm text-zinc-400">{active.length} active · {completed.length} completed · {failed.length} failed</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Render Queue</h1>
+          <p className="mt-1 text-sm text-zinc-400">{active.length} active · {completed.length} completed · {failed.length} failed</p>
+        </div>
+        {(completed.length > 0 || failed.length > 0) && (
+          <Button variant="outline" size="sm" onClick={clearFinished} className="text-xs">
+            <Trash2 className="h-3.5 w-3.5 mr-2" /> Clear finished
+          </Button>
+        )}
       </div>
 
       {error && (
@@ -44,10 +58,14 @@ export function RenderQueuePage() {
                   ) : (
                     <Clock className="h-4 w-4 text-zinc-500" />
                   )}
-                  <span className="text-sm font-medium">{job.contentId}</span>
+                  <span className="text-sm font-medium">{getContentTitle(job.contentId)}</span>
                   <Badge>{job.status}</Badge>
                 </div>
-                <span className="text-xs text-zinc-500">{job.id}</span>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-red-400" onClick={() => cancel(job.id)} title="Cancel Render">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
                 <div
@@ -60,18 +78,41 @@ export function RenderQueuePage() {
           ))}
 
           {completed.map(job => (
-            <Card key={job.id} className="flex items-center gap-3 p-4">
-              <CheckCircle className="h-4 w-4 text-green-400" />
-              <span className="text-sm">{job.contentId}</span>
-              <span className="text-xs text-zinc-500">Completed</span>
+            <Card key={job.id} className="flex items-center justify-between p-4 group">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-4 w-4 text-green-400" />
+                <span className="text-sm">{getContentTitle(job.contentId)}</span>
+                <span className="text-xs text-zinc-500">Completed</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {job.outputPath && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-zinc-400 hover:text-indigo-400 transition-colors" 
+                    onClick={() => window.electron.fs.showInFolder(job.outputPath!)}
+                    title="Show in Folder"
+                  >
+                    <Folder className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-600 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity" onClick={() => remove(job.id)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </Card>
           ))}
 
           {failed.map(job => (
-            <Card key={job.id} className="flex items-center gap-3 border-red-900/30 bg-red-950/20 p-4">
-              <XCircle className="h-4 w-4 text-red-400" />
-              <span className="text-sm">{job.contentId}</span>
-              <span className="text-xs text-red-400">{job.error || 'Failed'}</span>
+            <Card key={job.id} className="flex items-center justify-between border-red-900/30 bg-red-950/20 p-4 group">
+              <div className="flex items-center gap-3">
+                <XCircle className="h-4 w-4 text-red-400" />
+                <span className="text-sm">{getContentTitle(job.contentId)}</span>
+                <span className="text-xs text-red-400">{job.error || 'Failed'}</span>
+              </div>
+              <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-300 transition-opacity" onClick={() => remove(job.id)}>
+                <X className="h-4 w-4" />
+              </Button>
             </Card>
           ))}
         </div>

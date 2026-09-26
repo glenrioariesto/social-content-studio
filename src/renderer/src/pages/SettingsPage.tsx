@@ -14,6 +14,12 @@ interface AppSettings {
   maxConcurrentRender: number
   workspacePath?: string
   ffmpegPath?: string
+  ffprobePath?: string
+  ytDlpPath?: string
+  aiProvider?: string
+  aiBaseUrl?: string
+  aiApiKey?: string
+  aiModel?: string
 }
 
 export function SettingsPage() {
@@ -24,7 +30,20 @@ export function SettingsPage() {
   const [exporting, setExporting] = useState(false)
   const [workspaceDir, setWorkspaceDir] = useState('')
   const [ffmpegPath, setFfmpegPath] = useState('')
-  const [ffmpegStatus, setFfmpegStatus] = useState<{ found: boolean; isFile: boolean } | null>(null)
+  const [ffprobePath, setFfprobePath] = useState('')
+  const [ytDlpPath, setYtDlpPath] = useState('')
+  
+  const [ffmpegStatus, setFfmpegStatus] = useState<{ found: boolean; isFile: boolean; version?: string } | null>(null)
+  const [ffprobeStatus, setFfprobeStatus] = useState<{ found: boolean; isFile: boolean; version?: string } | null>(null)
+  const [ytDlpStatus, setYtDlpStatus] = useState<{ found: boolean; isFile: boolean; version?: string } | null>(null)
+  const [isInstallingDeps, setIsInstallingDeps] = useState(false)
+  const [installLogs, setInstallLogs] = useState<string[]>([])
+  
+  const [aiProvider, setAiProvider] = useState('typesafe')
+  const [aiBaseUrl, setAiBaseUrl] = useState('')
+  const [aiApiKey, setAiApiKey] = useState('')
+  const [aiModel, setAiModel] = useState('')
+  const [isTestingAi, setIsTestingAi] = useState(false)
   const [restartNotice, setRestartNotice] = useState(false)
   const { showSuccess, showInfo } = useErrorToast()
 
@@ -41,6 +60,12 @@ export function SettingsPage() {
       setSettings(data)
       setWorkspaceDir(data.workspacePath || '')
       setFfmpegPath(data.ffmpegPath || '')
+      setFfprobePath(data.ffprobePath || '')
+      setYtDlpPath(data.ytDlpPath || '')
+      setAiProvider(data.aiProvider || 'typesafe')
+      setAiBaseUrl(data.aiBaseUrl || '')
+      setAiApiKey(data.aiApiKey || '')
+      setAiModel(data.aiModel || '')
     }
     if (!infoRes.success || !settingsRes.success) {
       setError((infoRes.error || settingsRes.error) ?? 'Failed to load settings')
@@ -50,15 +75,60 @@ export function SettingsPage() {
 
   useEffect(() => { loadInfo() }, [loadInfo])
 
-  // REQ-005: immediate ffmpeg validity feedback whenever the path changes.
+  // Immediate validity feedback whenever the paths change
   useEffect(() => {
     let cancelled = false
-    if (!ffmpegPath) { setFfmpegStatus(null); return }
-    ;(window.electron.settings.validateFfmpeg(ffmpegPath)).then((res) => {
-      if (!cancelled && res.success && res.data) setFfmpegStatus(res.data)
-    })
+    if (!ffmpegPath) { setFfmpegStatus(null) } else {
+      window.electron.settings.validateBinary('ffmpeg', ffmpegPath).then(res => {
+        if (!cancelled && res.success && res.data) setFfmpegStatus(res.data)
+      })
+    }
     return () => { cancelled = true }
   }, [ffmpegPath])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!ffprobePath) { setFfprobeStatus(null) } else {
+      window.electron.settings.validateBinary('ffprobe', ffprobePath).then(res => {
+        if (!cancelled && res.success && res.data) setFfprobeStatus(res.data)
+      })
+    }
+    return () => { cancelled = true }
+  }, [ffprobePath])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!ytDlpPath) { setYtDlpStatus(null) } else {
+      window.electron.settings.validateBinary('yt-dlp', ytDlpPath).then(res => {
+        if (!cancelled && res.success && res.data) setYtDlpStatus(res.data)
+      })
+    }
+    return () => { cancelled = true }
+  }, [ytDlpPath])
+
+  const handleAutoInstallDeps = async () => {
+    setIsInstallingDeps(true)
+    setInstallLogs([])
+    try {
+      const res = await window.electron.settings.autoInstallDeps()
+      if (res.success && res.data) {
+        setInstallLogs(res.data.log)
+        if (res.data.restartRequired) {
+          setRestartNotice(true)
+          showSuccess('Dependencies installed or found. Restart recommended.')
+        } else {
+          showSuccess('Dependency check complete.')
+        }
+        await loadInfo()
+      } else {
+        showInfo(res.error || 'Failed to install dependencies')
+      }
+    } catch (e) {
+      showInfo(String(e))
+    } finally {
+      setIsInstallingDeps(false)
+    }
+  }
 
   const handleExport = async () => {
     setExporting(true)
@@ -72,7 +142,17 @@ export function SettingsPage() {
   }
 
   const handleSaveSettings = async () => {
-    const next = { ...settings, workspacePath: workspaceDir, ffmpegPath: ffmpegPath }
+    const next = { 
+      ...settings, 
+      workspacePath: workspaceDir, 
+      ffmpegPath,
+      ffprobePath,
+      ytDlpPath,
+      aiProvider,
+      aiBaseUrl,
+      aiApiKey,
+      aiModel
+    }
     const result = await window.electron.settings.write(next)
     if (result.success) {
       setSettings(next)
@@ -85,6 +165,25 @@ export function SettingsPage() {
     } else {
       showInfo(`Save failed: ${result?.error || 'unknown error'}`)
     }
+  }
+
+  const handleTestAiConnection = async () => {
+    // Save first so the backend uses the latest keys
+    const next = { ...settings, workspacePath: workspaceDir, ffmpegPath, ffprobePath, ytDlpPath, aiProvider, aiBaseUrl, aiApiKey, aiModel }
+    await window.electron.settings.write(next)
+    
+    setIsTestingAi(true)
+    try {
+      const res = await window.electron.ai.testConnection()
+      if (res.success && res.data) {
+        showSuccess('AI Connection Successful! 🚀')
+      } else {
+        showInfo('AI Connection Failed. Please check your URL and API Key.')
+      }
+    } catch (e) {
+      showInfo(`Connection error: ${e}`)
+    }
+    setIsTestingAi(false)
   }
 
   return (
@@ -168,6 +267,61 @@ export function SettingsPage() {
                     : <><XCircle className="h-4 w-4" /> FFmpeg not found or not valid</>}
                 </div>
               )}
+            </div>
+          </Card>
+          <Card className="p-5">
+            <h2 className="mb-4 text-sm font-semibold text-zinc-300">AI Provider (Antigravity/Claude/OpenAI)</h2>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs text-zinc-400">Provider</label>
+                <Select
+                  value={aiProvider}
+                  onChange={e => setAiProvider(e.target.value)}
+                  className="py-1.5"
+                >
+                  <option value="typesafe">TypeSafe AI (Default)</option>
+                  <option value="antigravity">Antigravity</option>
+                  <option value="claude">Anthropic Claude</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="opencode">Opencode</option>
+                  <option value="custom">Custom (OpenAI Compatible)</option>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-zinc-400">Base URL (For custom endpoints)</label>
+                <Input
+                  value={aiBaseUrl}
+                  onChange={e => setAiBaseUrl(e.target.value)}
+                  placeholder="e.g., https://api.antigravity.ai/v1"
+                  disabled={aiProvider === 'typesafe'}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-zinc-400">API Key</label>
+                <Input
+                  type="password"
+                  value={aiApiKey}
+                  onChange={e => setAiApiKey(e.target.value)}
+                  placeholder="sk-..."
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-zinc-400">Model Name</label>
+                <Input
+                  value={aiModel}
+                  onChange={e => setAiModel(e.target.value)}
+                  placeholder="e.g., antigravity-claude-3-5-sonnet"
+                  disabled={aiProvider === 'typesafe'}
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button onClick={handleTestAiConnection} disabled={isTestingAi} variant="outline" className="w-1/2">
+                  {isTestingAi ? 'Testing...' : 'Test Connection'}
+                </Button>
+                <Button onClick={handleSaveSettings} className="w-1/2" variant="secondary">
+                  Save AI Settings
+                </Button>
+              </div>
             </div>
           </Card>
         </div>

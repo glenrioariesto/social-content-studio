@@ -32,14 +32,16 @@ export function ContentDetailPage() {
 
   const load = () => {
     if (!id) return
-    window.electron.workspace.getContents()
+    window.electron.workspace.getContent(id)
       .then(res => {
         if (res.success && res.data) {
-          const found = res.data.find(c => c.id === id)
-          if (found && found.kind === 'valid') setContent(found.data)
-          else setError('Content not found')
+          if (res.data.kind === 'valid') {
+            setContent(res.data.data)
+          } else {
+            setError('Content file is corrupted or invalid')
+          }
         } else {
-          setError(res.error || 'Failed to load content')
+          setError(res.error || 'Content not found')
         }
       })
       .catch(err => setError(err.message))

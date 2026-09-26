@@ -7,12 +7,14 @@ export interface ElectronAPI {
   }
   fs: {
     readFile: (path: string) => Promise<{ success: boolean; data?: string; error?: string }>
+    readImageBase64: (path: string) => Promise<{ success: boolean; data?: string; error?: string }>
     writeFile: (path: string, content: string) => Promise<{ success: boolean; error?: string }>
     readdir: (path: string) => Promise<{ success: boolean; data?: Array<{ name: string; isDirectory: boolean; isFile: boolean }>; error?: string }>
     mkdir: (path: string) => Promise<{ success: boolean; error?: string }>
     rm: (path: string) => Promise<{ success: boolean; error?: string }>
     exists: (path: string) => Promise<{ success: boolean; data?: boolean; error?: string }>
     stat: (path: string) => Promise<{ success: boolean; data?: { isFile: boolean; isDirectory: boolean; size: number; mtime: string; birthtime: string }; error?: string }>
+    showInFolder: (path: string) => Promise<{ success: boolean; error?: string }>
   }
   workspace: {
     getAccounts: () => Promise<{ success: boolean; data?: import('@shared/loaded-entry').LoadedEntry<import('@shared/index').Account>[]; error?: string }>
@@ -33,6 +35,7 @@ export interface ElectronAPI {
   render: {
     start: (data: Record<string, unknown>) => Promise<{ success: boolean; data?: unknown; error?: string }>
     cancel: (jobId: string) => Promise<{ success: boolean; error?: string }>
+    remove: (jobId: string) => Promise<{ success: boolean; error?: string }>
     jobs: () => Promise<{ success: boolean; data?: import('@shared/render').RenderJobSummary[]; error?: string }>
     thumbnail: (videoPath: string, outputPath: string) => Promise<{ success: boolean; data?: string; error?: string }>
     setConcurrency: (n: number) => Promise<{ success: boolean; error?: string }>
@@ -45,7 +48,8 @@ export interface ElectronAPI {
   settings: {
     read: () => Promise<{ success: boolean; data?: import('@shared/index').AppSettings; error?: string }>
     write: (settings: Record<string, unknown>) => Promise<{ success: boolean; requiresRestart?: boolean; error?: string }>
-    validateFfmpeg: (ffmpegPath: string) => Promise<{ success: boolean; data?: { found: boolean; isFile: boolean }; error?: string }>
+    validateBinary: (binaryName: string, path: string) => Promise<{ success: boolean; data?: { found: boolean; isFile: boolean; version?: string }; error?: string }>
+    autoInstallDeps: () => Promise<{ success: boolean; data?: { success: boolean; log: string[]; restartRequired?: boolean }; error?: string }>
     status: () => Promise<{ success: boolean; data?: { valid: boolean; configuredRoot: string | null; activeRoot: string }; error?: string }>
     pickWorkspace: () => Promise<{ success: boolean; data?: string | null; error?: string }>
   }
@@ -68,6 +72,7 @@ export interface ElectronAPI {
     classifyAsset: (filename: string) => Promise<import('@shared/errors').IPCResult<'images' | 'audio' | 'video' | 'fonts' | null>>
     scoreAsset: (templateMetadata: Record<string, unknown>, assetName: string) => Promise<import('@shared/errors').IPCResult<number | null>>
     suggestTemplate: (contentSnippet: string, availableTemplates: { id: string; name: string; type: string }[]) => Promise<import('@shared/errors').IPCResult<string | null>>
+    testConnection: () => Promise<import('@shared/errors').IPCResult<boolean>>
   }
   resource: {
     list: () => Promise<import('@shared/errors').IPCResult<import('@shared/resource').Resource[]>>

@@ -1,6 +1,8 @@
 {
   "name": "social-content-studio",
   "version": "0.1.0",
+  "description": "Local desktop app for managing social-media content, HTML templates, assets, and FFmpeg renders",
+  "author": "Glen Rio Ariesto",
   "private": true,
   "type": "module",
   "main": "out/main/main.js",
@@ -15,6 +17,7 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "bun run typecheck:node && bun run typecheck:web",
     "test": "bun test",
+    "test:e2e": "bun run build && bun test tests/e2e",
     "test:agent": "bun test tests/services/agent.test.ts",
     "test:guards": "bun test tests/security/confinement.test.ts tests/services/lifecycle.test.ts tests/services/agent.test.ts",
     "verify": "bun run typecheck && bun test && bun run build",
@@ -37,10 +40,13 @@
     "chokidar": "^4.0.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0",
     "lucide-react": "^0.500.0",
     "monaco-editor": "^0.56.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-rnd": "^10.5.3",
     "react-router-dom": "^7.0.0",
     "tailwind-merge": "^3.0.0",
     "zustand": "^5.0.0"
@@ -52,10 +58,11 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.5.0",
     "electron": "^35.0.0",
+    "electron-builder": "^25.0.0",
     "electron-vite": "^3.0.0",
+    "playwright": "^1.63.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.8.0",
-    "vite": "^6.0.0",
-    "electron-builder": "^25.0.0"
+    "vite": "^6.0.0"
   }
 }

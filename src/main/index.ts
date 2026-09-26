@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, protocol, net } from 'electron'
 import { join } from 'path'
 import { initMainErrorHandlers, logError, logInfo } from './errors'
 import { createAppError } from '@shared/errors'
@@ -13,7 +13,11 @@ import { initAgentIpc } from './ipc/agent'
 import { initWatcherService, disposeWatcherService } from './watchers'
 import { renderQueue } from './services/render-queue'
 import { getWorkspaceRoot } from './services/workspace-root'
+import { assertInsideWorkspace } from './services/path-guard'
+import { pathToFileURL } from 'url'
 import { initReplizIpc } from './ipc/repliz'
+
+
 
 let mainWindow: BrowserWindow | null = null
 
@@ -30,13 +34,13 @@ function createWindow(): void {
       title: 'Social Content Studio',
       backgroundColor: '#09090b',
       webPreferences: {
-        preload: join(__dirname, '../preload/preload.mjs'),
+        preload: join(__dirname, '../preload/preload.cjs'),
         sandbox: true,
         contextIsolation: true,
-        nodeIntegration: false
+        nodeIntegration: false,
+        webSecurity: false // Required for <video> tags to play file:// URLs locally
       }
     })
-
     mainWindow.on('ready-to-show', () => {
       mainWindow?.show()
       logInfo('Main window ready')

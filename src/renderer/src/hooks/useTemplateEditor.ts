@@ -14,7 +14,8 @@ export function useTemplateEditor(templateId: string | null) {
   const [activeFile, setActiveFile] = useState<'html' | 'css' | 'json'>('html')
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(true)
-
+  const [previewLogoUrl, setPreviewLogoUrl] = useState<string | undefined>(undefined)
+  const [previewAccountId, setPreviewAccountId] = useState<string | null>(null)
   const loadFiles = useCallback(async () => {
     if (!templateId) return
     setLoading(true)
@@ -51,6 +52,23 @@ export function useTemplateEditor(templateId: string | null) {
     setSaved(true)
   }, [templateId, files])
 
+  // Resolve absolute logo URL for preview
+  useEffect(() => {
+    const tplAccountId = previewAccountId || (() => {
+      try { return JSON.parse(files.json || '{}')?.accountId }
+      catch { return undefined }
+    })()
+    const acc = tplAccountId ? accounts.find(a => a.id === tplAccountId) : undefined
+    if (acc) {
+      window.electron.account.getLogoUrl(acc.id).then(res => {
+        if (res.success && res.data) setPreviewLogoUrl(res.data)
+        else setPreviewLogoUrl(undefined)
+      })
+    } else {
+      setPreviewLogoUrl(undefined)
+    }
+  }, [files.json, accounts])
+
   const getPreviewHtml = useCallback(() => {
     const cssInjection = `<style>${files.css}</style>`
     let html = files.html
@@ -62,13 +80,20 @@ export function useTemplateEditor(templateId: string | null) {
     // FR-4: substitute account branding variables in the live preview.
     let boundAccount
     try {
-      const tplAccountId = JSON.parse(files.json || '{}')?.accountId
+      const tplAccountId = previewAccountId || JSON.parse(files.json || '{}')?.accountId
       boundAccount = tplAccountId ? accounts.find(a => a.id === tplAccountId) : undefined
     } catch {
       boundAccount = undefined
     }
-    return applyTemplateVariables(html, boundAccount ? { account: boundAccount } : {})
-  }, [files, accounts])
+    
+    // Inject the resolved absolute logo URL if available
+    const ctxAccount = boundAccount ? { 
+      ...boundAccount, 
+      branding: { ...boundAccount.branding, logo: previewLogoUrl || boundAccount.branding?.logo } 
+    } : undefined
+    
+    return applyTemplateVariables(html, ctxAccount ? { account: ctxAccount } : {})
+  }, [files, accounts, previewLogoUrl])
 
-  return { files, activeFile, setActiveFile, updateFile, save, saved, loading, getPreviewHtml, reload: loadFiles }
+  return { files, activeFile, setActiveFile, updateFile, save, saved, loading, getPreviewHtml, reload: loadFiles, previewAccountId, setPreviewAccountId, accounts }
 }

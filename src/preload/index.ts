@@ -11,12 +11,14 @@ const electronAPI = {
 
   fs: {
     readFile: (path: string) => ipcRenderer.invoke('fs:read-file', path),
+    readImageBase64: (path: string) => ipcRenderer.invoke('fs:read-image-base64', path),
     writeFile: (path: string, content: string) => ipcRenderer.invoke('fs:write-file', path, content),
     readdir: (path: string) => ipcRenderer.invoke('fs:readdir', path),
     mkdir: (path: string) => ipcRenderer.invoke('fs:mkdir', path),
     rm: (path: string) => ipcRenderer.invoke('fs:rm', path),
     exists: (path: string) => ipcRenderer.invoke('fs:exists', path),
-    stat: (path: string) => ipcRenderer.invoke('fs:stat', path)
+    stat: (path: string) => ipcRenderer.invoke('fs:stat', path),
+    showInFolder: (path: string) => ipcRenderer.invoke('fs:show-in-folder', path)
   },
 
   workspace: {
@@ -47,6 +49,7 @@ const electronAPI = {
   render: {
     start: (data: Record<string, unknown>) => ipcRenderer.invoke('render:start', data),
     cancel: (jobId: string) => ipcRenderer.invoke('render:cancel', jobId),
+    remove: (jobId: string) => ipcRenderer.invoke('render:remove', jobId),
     jobs: () => ipcRenderer.invoke('render:jobs'),
     thumbnail: (videoPath: string, outputPath: string) => ipcRenderer.invoke('render:thumbnail', videoPath, outputPath),
     setConcurrency: (n: number) => ipcRenderer.invoke('render:set-concurrency', n)
@@ -61,7 +64,8 @@ const electronAPI = {
   settings: {
 read: () => ipcRenderer.invoke('settings:read'),
       write: (settings: Record<string, unknown>) => ipcRenderer.invoke('settings:write', settings),
-      validateFfmpeg: (ffmpegPath: string) => ipcRenderer.invoke('settings:validate-ffmpeg', ffmpegPath),
+      validateBinary: (binaryName: string, path: string) => ipcRenderer.invoke('settings:validate-binary', { binaryName, path }),
+      autoInstallDeps: () => ipcRenderer.invoke('settings:auto-install-deps'),
       status: () => ipcRenderer.invoke('settings:status'),
       pickWorkspace: () => ipcRenderer.invoke('settings:pick-workspace')
   },
@@ -74,7 +78,9 @@ read: () => ipcRenderer.invoke('settings:read'),
   ai: {
     classifyAsset: (filename: string) => ipcRenderer.invoke('ai:classify-asset', filename),
     scoreAsset: (templateMetadata: Record<string, unknown>, assetName: string) => ipcRenderer.invoke('ai:score-asset', templateMetadata, assetName),
-    suggestTemplate: (contentSnippet: string, availableTemplates: { id: string; name: string; type: string }[]) => ipcRenderer.invoke('ai:suggest-template', contentSnippet, availableTemplates)
+    suggestTemplate: (contentSnippet: string, availableTemplates: { id: string; name: string; type: string }[]) => ipcRenderer.invoke('ai:suggest-template', contentSnippet, availableTemplates),
+    testConnection: () => ipcRenderer.invoke('ai:test-connection'),
+    generateMetadata: (title: string) => ipcRenderer.invoke('ai:generate-metadata', title)
   },
 
   agent: {

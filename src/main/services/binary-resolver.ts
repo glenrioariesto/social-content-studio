@@ -2,7 +2,7 @@ import { app } from 'electron'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import { readFile } from 'fs/promises'
-import { BOOTSTRAP_SETTINGS_PATH } from '@main/services/workspace-root'
+import { BOOTSTRAP_SETTINGS_PATH, getWorkspaceRoot } from '@main/services/workspace-root'
 
 /**
  * Resolves the path to external binaries (ffmpeg, yt-dlp).
@@ -21,11 +21,14 @@ export async function resolveBinary(binaryName: string): Promise<string> {
     const raw = await readFile(BOOTSTRAP_SETTINGS_PATH, 'utf-8')
     const settings = JSON.parse(raw)
     
-    // For ffmpeg specifically, check ffmpegPath setting
-    if (binaryName === 'ffmpeg' && settings.ffmpegPath) {
-      if (existsSync(settings.ffmpegPath)) {
-        return settings.ffmpegPath
-      }
+    if (binaryName === 'ffmpeg' && settings.ffmpegPath && existsSync(settings.ffmpegPath)) {
+      return settings.ffmpegPath
+    }
+    if (binaryName === 'ffprobe' && settings.ffprobePath && existsSync(settings.ffprobePath)) {
+      return settings.ffprobePath
+    }
+    if (binaryName === 'yt-dlp' && settings.ytDlpPath && existsSync(settings.ytDlpPath)) {
+      return settings.ytDlpPath
     }
   } catch {
     // Ignore settings read errors
@@ -36,6 +39,14 @@ export async function resolveBinary(binaryName: string): Promise<string> {
     const bundledPath = join(process.resourcesPath, 'bin', exeName)
     if (existsSync(bundledPath)) {
       return bundledPath
+    }
+  } else {
+    // Check local binaries folder during development using import.meta.dirname 
+    // which points to out/main and is immune to cwd differences.
+    const platformFolder = isWin ? 'win' : process.platform === 'darwin' ? 'mac' : 'linux'
+    const devPath = join(import.meta.dirname, '../../binaries', platformFolder, exeName)
+    if (existsSync(devPath)) {
+      return devPath
     }
   }
 

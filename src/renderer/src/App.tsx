@@ -28,11 +28,23 @@ export function App() {
   const [status, setStatus] = useState<WorkspaceStatus | null>(null)
 
   useEffect(() => {
+    if (!window.electron) {
+      // If opened in browser, electron API is missing. Set a specific fake status to show an error.
+      setStatus({ valid: false, configuredRoot: 'browser', activeRoot: 'browser' })
+      return
+    }
+    
     let cancelled = false
-    window.electron.settings.status().then(result => {
-      if (!cancelled && result.success && result.data) setStatus(result.data)
-      else if (!cancelled) setStatus({ valid: true, configuredRoot: null, activeRoot: '' })
-    })
+    if (window.electron && window.electron.settings) {
+      window.electron.settings.status().then(result => {
+        if (!cancelled && result.success && result.data) setStatus(result.data)
+        else if (!cancelled) setStatus({ valid: true, configuredRoot: null, activeRoot: '' })
+      }).catch(() => {
+        if (!cancelled) setStatus({ valid: true, configuredRoot: null, activeRoot: '' })
+      })
+    } else {
+      setStatus({ valid: false, configuredRoot: 'browser', activeRoot: 'browser' })
+    }
     return () => { cancelled = true }
   }, [])
 
@@ -41,6 +53,20 @@ export function App() {
   }
 
   if (!status.valid) {
+    if (status.configuredRoot === 'browser') {
+      return (
+        <div className="flex h-screen items-center justify-center bg-zinc-950 p-8 text-center text-zinc-300">
+          <div className="max-w-md space-y-4">
+            <h1 className="text-xl font-bold text-red-500">Electron Environment Required</h1>
+            <p>
+              It looks like you opened the development URL directly in a web browser.
+              Because this is a native desktop application, it requires the Electron APIs to access your local filesystem.
+            </p>
+            <p>Please close this tab and run the app from your terminal using <code className="rounded bg-zinc-800 px-1 py-0.5 text-zinc-200">bun run dev</code> so it opens in its own window.</p>
+          </div>
+        </div>
+      )
+    }
     return <WorkspaceSetupPage configuredRoot={status.configuredRoot} onResolved={() => window.location.reload()} />
   }
 

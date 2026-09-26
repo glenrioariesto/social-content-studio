@@ -18,7 +18,7 @@ export function WorkspaceSetupPage({ configuredRoot, onResolved }: WorkspaceSetu
   const pickFolder = async () => {
     setPicking(true)
     setError(null)
-    const result = await window.electron.settings.pickWorkspace()
+    const result = await (window.electron?.settings?.pickWorkspace() ?? Promise.resolve({ success: false }))
     setPicking(false)
     if (result.success && result.data) {
       setSelected(result.data)
@@ -34,7 +34,7 @@ export function WorkspaceSetupPage({ configuredRoot, onResolved }: WorkspaceSetu
   const saveWorkspace = async () => {
     setSaving(true)
     setError(null)
-    const result = await window.electron.settings.write({ workspacePath: selected })
+    const result = await (window.electron?.settings?.write({ workspacePath: selected }) ?? Promise.resolve({ success: false }))
     setSaving(false)
     if (result.success) {
       setRestartNeeded(true)

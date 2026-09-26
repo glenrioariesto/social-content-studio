@@ -63,12 +63,20 @@ export function initResourceIpc(): void {
     const outputPath = join(dir, name)
 
     logInfo(`resource:download start url=${trimmedUrl} output=${outputPath}`)
-
     const ytDlpBin = await resolveBinary('yt-dlp')
+    const ffmpegBin = await resolveBinary('ffmpeg')
     const { promise, resolve } = Promise.withResolvers<IPCResult<Resource>>()
     
     let stderr = ''
-    const proc = spawn(ytDlpBin, ['-f', 'best', '-o', outputPath, trimmedUrl], { stdio: 'pipe' })
+    let proc;
+    try {
+      proc = spawn(ytDlpBin, ['-f', 'best', '--ffmpeg-location', ffmpegBin, '-o', outputPath, trimmedUrl], { stdio: 'pipe' })
+    } catch (err) {
+      const message = `Synchronous spawn failed for ${ytDlpBin}. Error: ${(err as Error).message}`
+      logError(createAppError('RESOURCE_DOWNLOAD_FAILED', message, 'ipc'))
+      resolve({ success: false, error: message, errorCode: 'RESOURCE_DOWNLOAD_FAILED' })
+      return promise
+    }
     const timer = setTimeout(() => {
       proc.kill()
       const message = 'yt-dlp download timed out'

@@ -1,5 +1,5 @@
-import { classifyAssetType, scoreAssetRelevance, suggestTemplateForContent } from '@main/services/typesafe-client'
-import { type BrowserWindow } from 'electron'
+import {  classifyAssetType, scoreAssetRelevance, suggestTemplateForContent, testAiConnection , generateContentMetadata } from '@main/services/typesafe-client'
+import { shell, type BrowserWindow } from 'electron'
 import { readFile, writeFile, readdir, mkdir, rm, stat, access, realpath } from 'fs/promises'
 import { join, sep, dirname, relative } from 'path'
 import { safeIpcMain } from './safe-handler'
@@ -173,10 +173,31 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
   // Startup Sweep: recover content interrupted mid-render before serving reads.
   void startupSweep(ws())
 
+  safeIpcMain('fs:show-in-folder', async (_event, targetPath: string) => {
+    const root = ws()
+    const finalPath = await guardOrThrow('fs:show-in-folder', root, targetPath)
+    shell.showItemInFolder(finalPath)
+    return { success: true }
+  }, 'FS_READ_ERROR')
+
   safeIpcMain('fs:read-file', async (_event, filePath: string) => {
     const p = await guardOrThrow('fs:read-file', ws(), filePath)
     const content = await readFile(p, 'utf-8')
     return { success: true, data: content }
+  }, 'FS_READ_ERROR')
+  safeIpcMain('fs:read-image-base64', async (_event, filePath: string) => {
+    const p = await guardOrThrow('fs:read-image-base64', ws(), filePath)
+    const statData = await stat(p).catch(() => null)
+    if (!statData || !statData.isFile()) {
+      throw createAppError('FS_NOT_FOUND', 'Asset not found or is a directory', 'ipc')
+    }
+    if (statData.size > 5 * 1024 * 1024) {
+      throw createAppError('FS_VALIDATION_ERROR', 'Image too large for preview (max 5MB)', 'ipc')
+    }
+    const data = await readFile(p)
+    const ext = filePath.split('.').pop()?.toLowerCase() || 'png'
+    const mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`
+    return { success: true, data: `data:${mimeType};base64,${data.toString('base64')}` }
   }, 'FS_READ_ERROR')
 
   safeIpcMain('fs:write-file', async (_event, filePath: string, content: string) => {
@@ -338,6 +359,12 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
   safeIpcMain('ai:score-asset', async (_event, templateMetadata: Record<string, unknown>, assetName: string) => {
     const score = await scoreAssetRelevance(templateMetadata, assetName)
     return { success: true, data: score }
+  }, 'FS_READ_ERROR')
+
+  safeIpcMain('ai:test-connection', async () => {
+    const result = await testAiConnection()
+    if (!result) throw createAppError('FS_READ_ERROR', 'AI connection test failed', 'ipc')
+    return { success: true, data: result }
   }, 'FS_READ_ERROR')
 
   safeIpcMain('ai:suggest-template', async (_event, contentSnippet: string, availableTemplates: { id: string; name: string; type: string }[]) => {
