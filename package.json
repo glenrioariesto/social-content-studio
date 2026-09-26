@@ -27,7 +27,9 @@
     "agent:check": "bun scripts/agent-check.ts",
     "agent:demo": "bun scripts/agent-demo.ts",
     "agent:emulator": "bun scripts/agent-emulator.ts",
-    "demo": "bun run workspace:reset && bun run agent:emulator"
+    "demo": "bun run workspace:reset && bun run agent:emulator",
+    "pack": "electron-builder --win",
+    "pack:dir": "electron-builder --dir"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
@@ -53,6 +55,7 @@
     "electron-vite": "^3.0.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.8.0",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "electron-builder": "^25.0.0"
   }
 }
