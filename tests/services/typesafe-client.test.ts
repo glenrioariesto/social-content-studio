@@ -27,7 +27,7 @@ mock.module('@main/errors', () => ({
 }))
 
 // Test exception: Dynamic import required after mocks setup in Bun tests
-const { classifyFfmpegError, classifyAssetType, checkBrandGuardrails, scoreAssetRelevance } = await import('@main/services/typesafe-client')
+const { classifyFfmpegError, classifyAssetType, checkBrandGuardrails, scoreAssetRelevance, suggestTemplateForContent } = await import('@main/services/typesafe-client')
 
 beforeEach(() => {
   mockReadFile.mockClear()
@@ -86,5 +86,24 @@ test('scoreAssetRelevance returns score on success', async () => {
 test('scoreAssetRelevance fails open (returns null) if API key missing', async () => {
   mockReadFile.mockImplementationOnce(() => Promise.resolve('{}'))
   const result = await scoreAssetRelevance({ type: 'html-template' }, 'logo.png')
+  expect(result).toBeNull()
+})
+
+test('suggestTemplateForContent returns choice on success', async () => {
+  mockFetch.mockImplementationOnce(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ choice: 'tmpl-123', confidence: 0.9 }) }) as unknown as Response)
+  const templates = [{ id: 'tmpl-123', name: 'News Template', type: 'html-template' }]
+  const result = await suggestTemplateForContent('Breaking news caption', templates)
+  expect(result).toBe('tmpl-123')
+  expect(mockFetch).toHaveBeenCalled()
+})
+
+test('suggestTemplateForContent returns null if key missing', async () => {
+  mockReadFile.mockImplementationOnce(() => Promise.resolve('{}'))
+  const result = await suggestTemplateForContent('caption', [{ id: '1', name: 'A', type: 'B' }])
+  expect(result).toBeNull()
+})
+
+test('suggestTemplateForContent returns null if no templates available', async () => {
+  const result = await suggestTemplateForContent('caption', [])
   expect(result).toBeNull()
 })

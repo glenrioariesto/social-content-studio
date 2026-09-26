@@ -177,3 +177,43 @@ export async function scoreAssetRelevance(templateMetadata: Record<string, unkno
     return null
   }
 }
+
+/**
+ * Uses AI to select the best matching HTML template for a given piece of content.
+ */
+export async function suggestTemplateForContent(
+  contentSnippet: string,
+  availableTemplates: { id: string; name: string; type: string }[]
+): Promise<string | null> {
+  try {
+    const apiKey = await getTypesafeApiKey()
+    if (!apiKey) return null
+    if (availableTemplates.length === 0) return null
+
+    logInfo(`TypeSafe AI: Suggesting template for content...`)
+
+    const response = await fetch('https://api.typesafe.ai/v1/choice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        question: "Based on the content snippet, which of these templates is the most semantically appropriate match?",
+        state: { contentSnippet },
+        options: availableTemplates.map(t => ({
+          value: t.id,
+          description: `${t.name} (Type: ${t.type})`
+        }))
+      })
+    })
+
+    if (!response.ok) return null
+    
+    const data = await response.json() as TypesafeChoiceResult
+    return data.choice
+
+  } catch {
+    return null
+  }
+}

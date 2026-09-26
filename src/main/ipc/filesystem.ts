@@ -1,4 +1,4 @@
-import { classifyAssetType, scoreAssetRelevance } from '@main/services/typesafe-client'
+import { classifyAssetType, scoreAssetRelevance, suggestTemplateForContent } from '@main/services/typesafe-client'
 import { type BrowserWindow } from 'electron'
 import { readFile, writeFile, readdir, mkdir, rm, stat, access, realpath } from 'fs/promises'
 import { join, sep, dirname, relative } from 'path'
@@ -338,5 +338,10 @@ export function initFileSystemIpc(_mainWindow: BrowserWindow): void {
   safeIpcMain('ai:score-asset', async (_event, templateMetadata: Record<string, unknown>, assetName: string) => {
     const score = await scoreAssetRelevance(templateMetadata, assetName)
     return { success: true, data: score }
+  }, 'FS_READ_ERROR')
+
+  safeIpcMain('ai:suggest-template', async (_event, contentSnippet: string, availableTemplates: { id: string; name: string; type: string }[]) => {
+    const templateId = await suggestTemplateForContent(contentSnippet, availableTemplates)
+    return { success: true, data: templateId }
   }, 'FS_READ_ERROR')
 }

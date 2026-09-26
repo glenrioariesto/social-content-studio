@@ -73,7 +73,8 @@ read: () => ipcRenderer.invoke('settings:read'),
   },
   ai: {
     classifyAsset: (filename: string) => ipcRenderer.invoke('ai:classify-asset', filename),
-    scoreAsset: (templateMetadata: Record<string, unknown>, assetName: string) => ipcRenderer.invoke('ai:score-asset', templateMetadata, assetName)
+    scoreAsset: (templateMetadata: Record<string, unknown>, assetName: string) => ipcRenderer.invoke('ai:score-asset', templateMetadata, assetName),
+    suggestTemplate: (contentSnippet: string, availableTemplates: { id: string; name: string; type: string }[]) => ipcRenderer.invoke('ai:suggest-template', contentSnippet, availableTemplates)
   },
 
   agent: {
