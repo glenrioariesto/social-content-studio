@@ -1,6 +1,9 @@
 import { BrowserWindow } from 'electron'
 import { randomUUID } from 'crypto'
 import { safeIpcMain } from './safe-handler'
+import { checkBrandGuardrails } from '@main/services/typesafe-client'
+import { loadEntry } from './filesystem'
+import { validateContent } from '@shared/validators'
 import { renderQueue, type RenderJob } from '@main/services/render-queue'
 import { generateThumbnail } from '@main/services/render-engine'
 import { logInfo, logWarning } from '@main/errors'
@@ -90,6 +93,16 @@ export function initRenderIpc(mainWindow: BrowserWindow): void {
     if (!inputPath) {
       throw new Error('render:start requires an inputPath inside the workspace')
     }
+    
+    // Phase 3: TypeSafe Content Guardrails
+    const contentDoc = await loadEntry(join(getWorkspaceRoot(), 'contents', jobData.contentId, 'content.json'), 'contents', validateContent)
+    if (contentDoc.kind === 'valid' && contentDoc.data.caption) {
+      const isSafe = await checkBrandGuardrails(contentDoc.data.caption)
+      if (!isSafe) {
+        throw new Error('Render blocked: Content contains profanity or violates brand guidelines.')
+      }
+    }
+
     const overlayPath = confineRenderPath('render:start', jobData.overlayPath)
     const outputPath = confineRenderPath('render:start', jobData.outputPath) ?? join(getWorkspaceRoot(), 'renders')
 

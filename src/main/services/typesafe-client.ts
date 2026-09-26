@@ -95,3 +95,39 @@ export async function classifyAssetType(filename: string): Promise<'images' | 'a
     return null
   }
 }
+
+
+/**
+ * Uses AI to validate if text content meets professional brand guidelines.
+ */
+export async function checkBrandGuardrails(content: string): Promise<boolean> {
+  try {
+    const rawSettings = await readFile(BOOTSTRAP_SETTINGS_PATH, 'utf-8').catch(() => '{}')
+    const settings = JSON.parse(rawSettings)
+    
+    if (!settings.typesafeApiKey) return true // Fail open if unconfigured
+
+    logInfo(`TypeSafe AI: Running brand guardrails on content...`)
+
+    const response = await fetch('https://api.typesafe.ai/v1/noul', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.typesafeApiKey}`
+      },
+      body: JSON.stringify({
+        question: "Does this text align with a professional brand tone and is it free of profanity or aggressive language?",
+        state: { text: content.slice(0, 2000) } // Check up to 2000 chars
+      })
+    })
+
+    if (!response.ok) return true // Fail open on API error
+    
+    const data = await response.json() as { noul: number }
+    // Return true if probability of being professional is > 0.6
+    return data.noul > 0.6
+
+  } catch {
+    return true // Fail open on network/parsing error
+  }
+}
