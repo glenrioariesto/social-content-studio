@@ -10,3 +10,13 @@ workspace/renders/
 *.tmp
 tw.txt
 bun.lockb
+.claude/
+test-*.*
+patch_*.*
+fix_*.*
+god-mode-*.html
+*.zip
+dummy.mp4
+renders/
+binaries/
+
