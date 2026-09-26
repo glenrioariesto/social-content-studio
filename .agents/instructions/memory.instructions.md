@@ -305,3 +305,34 @@
 <!-- checkpoint-tail: 2026-09-15 GH-004 AC-008 guided workspace setup landed (settings:status + settings:pick-workspace + WorkspaceSetupPage + 5 tests), verify 127/0 green; GH-001..007 all MET; session changes uncommitted, main ahead of origin. -->
 
 ---
+
+## 📝 Session Checkpoint: 2026-09-26
+
+- **Active Memory Path:** `.agents/instructions/memory.instructions.md`
+- **Current SDLC Phase:** TypeSafe AI Integration / Autonomous Improvements
+- **Active Artifacts:**
+  - `plan/plan-typesafe-integration-strategy-v1.0.md` — Status: ✅ Finalized & Executed
+  - `spec/spec-typesafe-ffmpeg-analyzer.md` — Status: ✅ Finalized & Executed
+- **Achieved Milestones:**
+  - Successfully integrated 5 phases of deterministic AI using the TypeSafe skill (Jev models).
+  - Phase 1: Smart FFmpeg Error Analyzer (`classifyFfmpegError`) wired to `render-engine.ts` and `ContentDetailPage.tsx`.
+  - Phase 2: Automated Asset Tagging (`classifyAssetType`) wired to `AssetsPage.tsx` upload flow.
+  - Phase 3: Content Brand Guardrails (`checkBrandGuardrails`) wired to `render:start` IPC to block profane/aggressive renders.
+  - Phase 4: Template-to-Asset Matchmaker (`scoreAssetRelevance`) wired to an "AI Matchmaker" button in `ContentDetailPage.tsx`.
+  - Phase 5: Automated Template Selection (`suggestTemplateForContent`) wired to `ContentCreationWizard.tsx` for silent, auto-assigning templates based on post captions.
+  - Completely resolved the global `mock.module` bleed instability across the `bun test` suite by removing top-level namespace mocks and introducing `_setTestWorkspaceRoot` for clean test isolation.
+- **Dead-Ends (Do NOT Repeat):**
+  - **Attempted:** Using `mock.module('@main/services/workspace-root')` or `spyOn(workspaceRoot)` across multiple parallel/sequential test files.
+  - **Reason:** In Bun, `mock.module` locks the registry. Once a module is imported by a previous test file, subsequent tests trying to use `mock.module` are ignored. Static imports also bypass `spyOn` on namespaces. This caused widespread `ENOENT` test failures as services wrote to real directories while tests read from temp ones.
+  - **Correct Solution:** Implemented a native `_testWorkspaceRoot` variable and `_setTestWorkspaceRoot` setter directly inside the production `workspace-root.ts` file, bypassing module mocking entirely for integration tests.
+- **Updated Files:**
+  - `src/main/services/typesafe-client.ts` — Core AI logic and API integration.
+  - `src/main/ipc/render.ts`, `filesystem.ts` — IPC bridges for AI functions and persistence logic for `content.error`.
+  - `src/renderer/src/components/*` & `pages/*` — Fully wired UI integrations for all AI phases.
+  - `tests/**/*` — Heavily refactored tests replacing `mock.module` with native path overrides.
+- **Decisions Made:**
+  - TypeSafe API integration must gracefully "fail open" (return `null` or `true` depending on the guardrail) if the `typesafeApiKey` is unconfigured or the machine is offline, adhering strictly to the app's local-first architecture constraints.
+- **Next Action / Pending:**
+  - The autonomous queue is currently empty. Next session should seek explicit user direction for new features, UI improvements, or issue resolution.
+
+<!-- checkpoint-tail: TypeSafe AI integration complete 2026-09-26 — 5 AI features (errors, tagging, guardrails, matchmaking, templates) successfully wired from backend to React UI; global mock bleed in test suite resolved via native path overrides. -->
