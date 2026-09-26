@@ -1,0 +1,50 @@
+{
+  "id": "promo-fullscreen",
+  "name": "Full Screen Promo Bg",
+  "type": "html-template",
+  "input": {
+    "type": "html"
+  },
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "layoutElements": [
+    {
+      "id": "t1",
+      "type": "text",
+      "x": 90,
+      "y": 300,
+      "w": 900,
+      "h": 200,
+      "content": "SPECIAL PROMO",
+      "color": "#fcd34d",
+      "fontSize": 120
+    },
+    {
+      "id": "t2",
+      "type": "text",
+      "x": 90,
+      "y": 550,
+      "w": 900,
+      "h": 100,
+      "content": "{{account.description}}",
+      "color": "#ffffff",
+      "fontSize": 40
+    },
+    {
+      "id": "logo",
+      "type": "account-logo",
+      "x": 340,
+      "y": 1200,
+      "w": 400,
+      "h": 400,
+      "content": "{{account.logo}}"
+    }
+  ],
+  "canvasSettings": {
+    "bgColor": "#1e1b4b",
+    "bgImage": "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1080&h=1920&fit=crop"
+  }
+}

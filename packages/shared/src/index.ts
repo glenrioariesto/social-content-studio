@@ -128,6 +128,12 @@ export interface AppSettings {
   maxConcurrentRender: number
   workspacePath: string
   ffmpegPath?: string
+  ffprobePath?: string
+  ytDlpPath?: string
+  aiProvider?: 'typesafe' | 'openai' | 'antigravity' | 'claude' | 'opencode' | 'custom'
+  aiBaseUrl?: string
+  aiApiKey?: string
+  aiModel?: string
 }
 
 export interface FileChangeEvent {

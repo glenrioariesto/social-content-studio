@@ -1,10 +1,25 @@
 import { readFileSync, existsSync, statSync } from 'fs'
 import { join } from 'path'
-import { logInfo } from '@main/errors'
+
 import { createAppError } from '@shared/errors'
 
 /** Bootstrap settings file — always lives at cwd/workspace, regardless of configured workspacePath. */
 export const BOOTSTRAP_SETTINGS_PATH = join(process.cwd(), 'workspace', 'config', 'settings.json')
+
+let testWorkspaceRoot: string | null = null
+let testBootstrapSettingsPath: string | null = null
+
+export function _setTestWorkspaceRoot(root: string | null | undefined): void {
+  testWorkspaceRoot = root || null
+}
+
+export function _setTestBootstrapSettingsPath(path: string | null | undefined): void {
+  testBootstrapSettingsPath = path || null
+}
+
+export function getBootstrapSettingsPath(): string {
+  return testBootstrapSettingsPath || BOOTSTRAP_SETTINGS_PATH
+}
 
 /**
  * Single source of truth for the Workspace Root (Spec REQ-004 / CON-002).
@@ -17,9 +32,13 @@ export const BOOTSTRAP_SETTINGS_PATH = join(process.cwd(), 'workspace', 'config'
  *    blast radius; the caller surfaces a guided/error state instead.
  */
 export function getWorkspaceRoot(): string {
+  if (testWorkspaceRoot) {
+    return testWorkspaceRoot
+  }
+  const settingsPath = testBootstrapSettingsPath || BOOTSTRAP_SETTINGS_PATH
   let configured: string | undefined
   try {
-    const raw = readFileSync(BOOTSTRAP_SETTINGS_PATH, 'utf-8')
+    const raw = readFileSync(settingsPath, 'utf-8')
     const parsed = JSON.parse(raw) as { workspacePath?: string }
     if (parsed && typeof parsed.workspacePath === 'string' && parsed.workspacePath.length > 0) {
       configured = parsed.workspacePath
@@ -30,7 +49,7 @@ export function getWorkspaceRoot(): string {
 
   if (!configured) {
     const fallback = join(process.cwd(), 'workspace')
-    logInfo(`Workspace root: no configured path, using default ${fallback}`)
+    // no longer logging here to prevent infinite recursion with logDir()
     return fallback
   }
 

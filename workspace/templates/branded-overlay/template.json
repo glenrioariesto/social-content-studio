@@ -1,0 +1,48 @@
+{
+  "id": "branded-overlay",
+  "name": "Branded Account Overlay",
+  "type": "video-overlay",
+  "input": {
+    "type": "video"
+  },
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "layoutElements": [
+    {
+      "id": "logo1",
+      "type": "account-logo",
+      "x": 50,
+      "y": 50,
+      "w": 150,
+      "h": 150,
+      "content": "{{account.logo}}"
+    },
+    {
+      "id": "text1",
+      "type": "text",
+      "x": 50,
+      "y": 1700,
+      "w": 980,
+      "h": 100,
+      "content": "@{{account.name}} | Follow Us",
+      "color": "#ffffff",
+      "fontSize": 48
+    },
+    {
+      "id": "box1",
+      "type": "image",
+      "x": 0,
+      "y": 1650,
+      "w": 1080,
+      "h": 270,
+      "content": "https://placehold.co/1080x270/000000/000000?text=+"
+    }
+  ],
+  "canvasSettings": {
+    "bgColor": "#00000000",
+    "bgImage": ""
+  }
+}

@@ -7,11 +7,12 @@ import AdmZip from 'adm-zip'
 import { dialog } from 'electron'
 import { logInfo, logError } from '@main/errors'
 import { createAppError } from '@shared/errors'
-import { getWorkspaceRoot, BOOTSTRAP_SETTINGS_PATH } from '@main/services/workspace-root'
+import { getWorkspaceRoot, getBootstrapSettingsPath } from '@main/services/workspace-root'
 import { assertInsideWorkspace } from '@main/services/path-guard'
 import { validateZipEntries } from '@main/services/zip-entries'
 import { atomicWriteJson } from '@main/services/persistence'
 
+import { detectOrInstallDependencies, checkBinary } from '@main/services/deps-installer'
 export function initBackupIpc(): void {
   const ws = () => getWorkspaceRoot()
 
@@ -72,7 +73,7 @@ export function initBackupIpc(): void {
 
   safeIpcMain('settings:read', async () => {
     try {
-      const raw = await readFile(BOOTSTRAP_SETTINGS_PATH, 'utf-8')
+      const raw = await readFile(getBootstrapSettingsPath(), 'utf-8')
       return { success: true, data: JSON.parse(raw) }
     } catch {
       return { success: true, data: { defaultPreset: 'instagram-reels', maxConcurrentRender: 1 } }
@@ -94,7 +95,7 @@ export function initBackupIpc(): void {
     // CON-001 + REQ-004: the bootstrap settings file (cwd/workspace) is the single
     // pointer to the active workspace; writing anywhere else would make a second
     // switch or a revert invisible to getWorkspaceRoot() on the next restart.
-    await atomicWriteJson(BOOTSTRAP_SETTINGS_PATH, settings) // CON-001: atomic
+    await atomicWriteJson(getBootstrapSettingsPath(), settings) // CON-001: atomic
     return { success: true, requiresRestart: true }
   }, 'FS_WRITE_ERROR')
 
@@ -104,7 +105,7 @@ export function initBackupIpc(): void {
   safeIpcMain('settings:status', async () => {
     let configured: string | undefined
     try {
-      const raw = await readFile(BOOTSTRAP_SETTINGS_PATH, 'utf-8')
+      const raw = await readFile(getBootstrapSettingsPath(), 'utf-8')
       const parsed = JSON.parse(raw) as { workspacePath?: string }
       if (parsed && typeof parsed.workspacePath === 'string' && parsed.workspacePath.length > 0) {
         configured = parsed.workspacePath
@@ -138,17 +139,22 @@ export function initBackupIpc(): void {
     return { success: true, data: result.filePaths[0] }
   }, 'FS_READ_ERROR')
 
-  safeIpcMain('settings:validate-ffmpeg', async (_event, ffmpegPath: string) => {
-    // NIT-08: report honestly. `isFile` (not `executable`) — a non-directory
-    // file may still be the wrong binary. Optional real check below.
-    if (!existsSync(ffmpegPath)) return { success: true, data: { found: false, isFile: false } }
-    if (!statSync(ffmpegPath).isFile()) return { success: true, data: { found: false, isFile: false } }
+  safeIpcMain('settings:validate-binary', async (_event, params: { binaryName: string, path: string }) => {
+    const versionArg = params.binaryName === 'ffmpeg' || params.binaryName === 'ffprobe' ? '-version' : '--version'
+    if (!existsSync(params.path)) return { success: true, data: { found: false } }
+    
+    try {
+      if (!statSync(params.path).isFile()) return { success: true, data: { found: false } }
+    } catch {
+      return { success: true, data: { found: false } }
+    }
 
-    const isRealFfmpeg = await new Promise<boolean>(resolve => {
-      const proc = spawn(ffmpegPath, ['-version'])
-      proc.on('error', () => resolve(false))
-      proc.on('close', code => resolve(code === 0))
-    })
-    return { success: true, data: { found: true, isFile: isRealFfmpeg } }
+    const result = await checkBinary(params.binaryName, params.path, versionArg)
+    return { success: true, data: { found: result.found, isFile: result.found, version: result.version } }
   }, 'FS_READ_ERROR')
+
+  safeIpcMain('settings:auto-install-deps', async () => {
+    const result = await detectOrInstallDependencies()
+    return { success: result.success, data: result }
+  }, 'FS_WRITE_ERROR')
 }

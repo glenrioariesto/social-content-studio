@@ -1,10 +1,19 @@
-import { app } from 'electron'
+import type { App } from 'electron'
+import * as electronModule from 'electron'
+const app: Pick<App, 'on'> =
+  'app' in electronModule && typeof electronModule.app === 'object' && electronModule.app !== null
+    ? (electronModule.app as Pick<App, 'on'>)
+    : { on: (() => {}) as unknown as App['on'] }
 import { appendFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { createAppError, type AppError } from '@shared/errors'
 import { getWorkspaceRoot } from '@main/services/workspace-root'
 
-let logInitialized = false
+let lastLogDir: string | null = null
+
+export function _resetLogInitializedForTest(): void {
+  lastLogDir = null
+}
 
 /** Lazy root-aligned log dir (PRN-003); falls back to the no-settings default. */
 function logDir(): string {
@@ -16,12 +25,13 @@ function logDir(): string {
 }
 
 async function ensureLogDir(): Promise<void> {
-  if (logInitialized) return
+  const dir = logDir()
+  if (lastLogDir === dir) return
   try {
-    await mkdir(logDir(), { recursive: true })
-    logInitialized = true
+    await mkdir(dir, { recursive: true })
+    lastLogDir = dir
   } catch {
-    logInitialized = false
+    lastLogDir = null
   }
 }
 

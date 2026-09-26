@@ -14,4 +14,5 @@ export interface RenderJobSummary {
   error?: string
   createdAt: string
   completedAt?: string
+  outputPath?: string
 }

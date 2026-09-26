@@ -6,11 +6,6 @@ import type { Account } from './index'
  * Pure and electron-free: takes template HTML and a context and returns HTML
  * with brand variables replaced. Unknown placeholders are left untouched so a
  * partially-migrated template never breaks.
- *
- * Supported variables:
- *   {{account.name}}        → account name
- *   {{account.description}} → account description ('' when absent)
- *   {{account.logo}}        → file:// URL of the logo asset ('' when absent)
  */
 export interface TemplateVarContext {
   account?: Pick<Account, 'name' | 'description' | 'branding'>
