@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileVideo, Trash2, Sparkles } from 'lucide-react'
+import { ArrowLeft, FileVideo, Trash2, Sparkles, AlertTriangle } from 'lucide-react'
 import { StatusBadge } from '@/components/StatusBadge'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useErrorToast } from '@/hooks/useErrorToast'
@@ -108,7 +108,6 @@ export function ContentDetailPage() {
       let bestScore = -1
       let bestFolder = ''
 
-      // Score each asset (sequential to avoid rate limits/overload on local models)
       for (const folder of ['images', 'video'] as const) {
         for (const assetName of assetsRes.data?.[folder] || []) {
           const sRes = await window.electron.ai.scoreAsset(template, assetName)
@@ -189,6 +188,17 @@ export function ContentDetailPage() {
               <h3 className="text-sm font-semibold text-zinc-300">Status</h3>
               <StatusBadge status={content.status} size="md" />
             </div>
+            
+            {content.status === 'failed' && content.error && (
+              <div className="rounded-md border border-red-900/50 bg-red-950/20 p-3 mt-2">
+                <h4 className="flex items-center gap-1.5 text-xs font-semibold text-red-400 mb-1">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Failure Reason
+                </h4>
+                <p className="text-sm text-red-200">{content.error}</p>
+              </div>
+            )}
+            
             {nextStatuses.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {nextStatuses.map(to => (

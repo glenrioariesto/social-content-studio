@@ -73,6 +73,7 @@ export interface Content {
     video: string
     thumbnail: string
   }
+  error?: string
   caption?: string
   hashtags?: string[]
   scheduledAt?: string

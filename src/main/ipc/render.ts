@@ -48,6 +48,7 @@ export function initRenderIpc(mainWindow: BrowserWindow): void {
           assertLegalTransition(content.status, 'ready-to-post')
           content.status = 'ready-to-post'
           content.output = { video: job.options.outputPath, thumbnail: thumbnailPath }
+          delete content.error
           content.updatedAt = new Date().toISOString()
           await atomicWriteJson(jsonPath, content)
           logInfo(`Content ${job.contentId} → ready-to-post after render ${job.id}`)
@@ -66,6 +67,7 @@ export function initRenderIpc(mainWindow: BrowserWindow): void {
         if (content.status === 'rendering') {
           assertLegalTransition(content.status, 'failed')
           content.status = 'failed'
+          content.error = job.error
           content.updatedAt = new Date().toISOString()
           await atomicWriteJson(jsonPath, content)
           logInfo(`Content ${job.contentId} → failed after render ${job.id}`)
