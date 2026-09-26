@@ -72,7 +72,8 @@ read: () => ipcRenderer.invoke('settings:read'),
     verifyAccount: (accountId: string, replizId: string) => ipcRenderer.invoke('repliz:verify-account', accountId, replizId)
   },
   ai: {
-    classifyAsset: (filename: string) => ipcRenderer.invoke('ai:classify-asset', filename)
+    classifyAsset: (filename: string) => ipcRenderer.invoke('ai:classify-asset', filename),
+    scoreAsset: (templateMetadata: Record<string, unknown>, assetName: string) => ipcRenderer.invoke('ai:score-asset', templateMetadata, assetName)
   },
 
   agent: {

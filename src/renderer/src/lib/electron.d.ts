@@ -66,6 +66,7 @@ export interface ElectronAPI {
   }
   ai: {
     classifyAsset: (filename: string) => Promise<import('@shared/errors').IPCResult<'images' | 'audio' | 'video' | 'fonts' | null>>
+    scoreAsset: (templateMetadata: Record<string, unknown>, assetName: string) => Promise<import('@shared/errors').IPCResult<number | null>>
   }
   resource: {
     list: () => Promise<import('@shared/errors').IPCResult<import('@shared/resource').Resource[]>>

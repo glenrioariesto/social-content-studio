@@ -27,7 +27,7 @@ mock.module('@main/errors', () => ({
 }))
 
 // Test exception: Dynamic import required after mocks setup in Bun tests
-const { classifyFfmpegError, classifyAssetType, checkBrandGuardrails } = await import('@main/services/typesafe-client')
+const { classifyFfmpegError, classifyAssetType, checkBrandGuardrails, scoreAssetRelevance } = await import('@main/services/typesafe-client')
 
 beforeEach(() => {
   mockReadFile.mockClear()
@@ -75,4 +75,16 @@ test('checkBrandGuardrails fails open (returns true) if API key missing', async 
   mockReadFile.mockImplementationOnce(() => Promise.resolve('{}'))
   const result = await checkBrandGuardrails('Any text')
   expect(result).toBe(true)
+})
+
+test('scoreAssetRelevance returns score on success', async () => {
+  mockFetch.mockImplementationOnce(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ score: 85 }) }) as unknown as Response)
+  const result = await scoreAssetRelevance({ type: 'html-template' }, 'logo.png')
+  expect(result).toBe(85)
+})
+
+test('scoreAssetRelevance fails open (returns null) if API key missing', async () => {
+  mockReadFile.mockImplementationOnce(() => Promise.resolve('{}'))
+  const result = await scoreAssetRelevance({ type: 'html-template' }, 'logo.png')
+  expect(result).toBeNull()
 })

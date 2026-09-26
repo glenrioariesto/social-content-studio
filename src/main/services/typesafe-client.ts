@@ -8,16 +8,29 @@ export interface TypesafeChoiceResult {
   confidence: number
 }
 
+export interface TypesafeScoreResult {
+  score: number
+  confidence: number
+}
+
+async function getTypesafeApiKey(): Promise<string | null> {
+  try {
+    const rawSettings = await readFile(BOOTSTRAP_SETTINGS_PATH, 'utf-8').catch(() => '{}')
+    const settings = JSON.parse(rawSettings)
+    return settings.typesafeApiKey || null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Opt-in TypeSafe AI integration for classifying messy errors.
  * Degrades gracefully to null if no API key is set or network is unreachable.
  */
 export async function classifyFfmpegError(stderr: string): Promise<string | null> {
   try {
-    const rawSettings = await readFile(BOOTSTRAP_SETTINGS_PATH, 'utf-8').catch(() => '{}')
-    const settings = JSON.parse(rawSettings)
-    
-    if (!settings.typesafeApiKey) {
+    const apiKey = await getTypesafeApiKey()
+    if (!apiKey) {
       return null // Opt-in feature not enabled
     }
 
@@ -27,7 +40,7 @@ export async function classifyFfmpegError(stderr: string): Promise<string | null
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.typesafeApiKey}`
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         question: "Based on this FFmpeg stderr log, what is the primary reason the render failed?",
@@ -61,10 +74,8 @@ export async function classifyFfmpegError(stderr: string): Promise<string | null
  */
 export async function classifyAssetType(filename: string): Promise<'images' | 'audio' | 'video' | 'fonts' | null> {
   try {
-    const rawSettings = await readFile(BOOTSTRAP_SETTINGS_PATH, 'utf-8').catch(() => '{}')
-    const settings = JSON.parse(rawSettings)
-    
-    if (!settings.typesafeApiKey) return null
+    const apiKey = await getTypesafeApiKey()
+    if (!apiKey) return null
 
     logInfo(`TypeSafe AI: Categorizing asset "${filename}"...`)
 
@@ -72,7 +83,7 @@ export async function classifyAssetType(filename: string): Promise<'images' | 'a
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.typesafeApiKey}`
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         question: "Based on this filename, what is the semantic asset category?",
@@ -96,16 +107,13 @@ export async function classifyAssetType(filename: string): Promise<'images' | 'a
   }
 }
 
-
 /**
  * Uses AI to validate if text content meets professional brand guidelines.
  */
 export async function checkBrandGuardrails(content: string): Promise<boolean> {
   try {
-    const rawSettings = await readFile(BOOTSTRAP_SETTINGS_PATH, 'utf-8').catch(() => '{}')
-    const settings = JSON.parse(rawSettings)
-    
-    if (!settings.typesafeApiKey) return true // Fail open if unconfigured
+    const apiKey = await getTypesafeApiKey()
+    if (!apiKey) return true // Fail open if unconfigured
 
     logInfo(`TypeSafe AI: Running brand guardrails on content...`)
 
@@ -113,7 +121,7 @@ export async function checkBrandGuardrails(content: string): Promise<boolean> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.typesafeApiKey}`
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         question: "Does this text align with a professional brand tone and is it free of profanity or aggressive language?",
@@ -129,5 +137,43 @@ export async function checkBrandGuardrails(content: string): Promise<boolean> {
 
   } catch {
     return true // Fail open on network/parsing error
+  }
+}
+
+/**
+ * Uses AI to score how relevant an asset is to a specific template.
+ */
+export async function scoreAssetRelevance(templateMetadata: Record<string, unknown>, assetName: string): Promise<number | null> {
+  try {
+    const apiKey = await getTypesafeApiKey()
+    if (!apiKey) return null
+
+    logInfo(`TypeSafe AI: Scoring relevance of asset "${assetName}" to template...`)
+
+    const response = await fetch('https://api.typesafe.ai/v1/score', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        question: "Based on the template metadata and the asset filename, how relevant is this asset for the template?",
+        state: { templateMetadata, assetName },
+        levels: [
+          { max: 20, description: "Completely irrelevant. Wrong media type or highly mismatching content." },
+          { max: 50, description: "Generic asset that could work, but isn't specifically tailored." },
+          { max: 80, description: "Good match. The asset aligns well with the template's purpose." },
+          { max: 100, description: "Perfect match. The asset is explicitly designed or named for this template." }
+        ]
+      })
+    })
+
+    if (!response.ok) return null
+    
+    const data = await response.json() as TypesafeScoreResult
+    return data.score
+
+  } catch {
+    return null
   }
 }
