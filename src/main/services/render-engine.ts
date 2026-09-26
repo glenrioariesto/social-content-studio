@@ -2,6 +2,7 @@ import { spawn } from 'child_process'
 import { logInfo, logError } from '@main/errors'
 import { createAppError } from '@shared/errors'
 import { classifyFfmpegError } from './typesafe-client'
+import { resolveBinary } from './binary-resolver'
 
 export interface RenderOptions {
   inputPath: string
@@ -54,88 +55,94 @@ function getOverlayPosition(position?: string): string {
 }
 
 export async function renderVideo(opts: RenderOptions): Promise<{ success: boolean; outputPath?: string; error?: string }> {
-  return new Promise((resolve) => {
-    const args = buildFfmpegArgs(opts)
-    logInfo(`FFmpeg render started: ${opts.outputPath}`)
+  const ffmpegBin = await resolveBinary('ffmpeg')
+  const { promise, resolve } = Promise.withResolvers<{ success: boolean; outputPath?: string; error?: string }>()
 
-    let durationSeconds = 30 // fallback estimate
-    let stderr = ''
+  const args = buildFfmpegArgs(opts)
+  logInfo(`FFmpeg render started: ${opts.outputPath}`)
 
-    // First pass: get input duration for accurate progress
-    const probeArgs = ['-i', opts.inputPath]
-    const probeProc = spawn('ffmpeg', probeArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
-    probeProc.stderr.on('data', (data: Buffer) => {
-      const line = data.toString()
-      const durMatch = line.match(/Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})/)
-      if (durMatch) {
-        durationSeconds = parseInt(durMatch[1]) * 3600 + parseInt(durMatch[2]) * 60 + parseFloat(durMatch[3])
-      }
-    })
-    probeProc.on('close', () => {
-      startRender()
-    })
-    probeProc.on('error', () => {
-      // If probe fails, proceed with fallback estimate
-      startRender()
-    })
+  let durationSeconds = 30 // fallback estimate
+  let stderr = ''
 
-    function startRender() {
-      const proc = spawn('ffmpeg', args, { stdio: ['pipe', 'pipe', 'pipe'] })
-
-      proc.stderr.on('data', (data: Buffer) => {
-        const line = data.toString()
-        stderr += line
-        const match = line.match(/time=(\d{2}):(\d{2}):(\d{2}\.\d{2})/)
-        if (match && opts.onProgress) {
-          const seconds = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseFloat(match[3])
-          const pct = durationSeconds > 0 ? Math.min(99, Math.floor((seconds / durationSeconds) * 100)) : 0
-          opts.onProgress(pct)
-        }
-      })
-
-      proc.on('close', (code) => {
-        if (code === 0) {
-          logInfo(`FFmpeg render completed: ${opts.outputPath}`)
-          opts.onProgress?.(100)
-          resolve({ success: true, outputPath: opts.outputPath })
-        } else {
-          const rawStderr = stderr.slice(-500)
-          
-          classifyFfmpegError(rawStderr).then((choice) => {
-            let userMessage = `FFmpeg error (code ${code})`
-            
-            if (choice === 'codec_unsupported') userMessage = "Format video sumber tidak didukung oleh preset render ini."
-            else if (choice === 'file_corrupted') userMessage = "File video sumber rusak atau tidak dapat dibaca."
-            else if (choice === 'out_of_memory') userMessage = "Kehabisan memori saat melakukan render video."
-            else if (choice === 'unknown') userMessage = `Gagal memproses video (FFmpeg Error Code: ${code}).`
-            
-            const err = createAppError('FFMPEG_ENCODING_ERROR', userMessage, 'main', rawStderr)
-            logError(err)
-            resolve({ success: false, error: userMessage })
-          })
-        }
-      })
-
-      proc.on('error', (err) => {
-        const appErr = createAppError('FFMPEG_NOT_FOUND', err.message, 'main')
-        logError(appErr)
-        resolve({ success: false, error: err.message })
-      })
+  // First pass: get input duration for accurate progress
+  const probeArgs = ['-i', opts.inputPath]
+  const probeProc = spawn(ffmpegBin, probeArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
+  probeProc.stderr.on('data', (data: Buffer) => {
+    const line = data.toString()
+    const durMatch = line.match(/Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})/)
+    if (durMatch) {
+      durationSeconds = parseInt(durMatch[1]) * 3600 + parseInt(durMatch[2]) * 60 + parseFloat(durMatch[3])
     }
   })
+  probeProc.on('close', () => {
+    startRender()
+  })
+  probeProc.on('error', () => {
+    // If probe fails, proceed with fallback estimate
+    startRender()
+  })
+
+  function startRender() {
+    const proc = spawn(ffmpegBin, args, { stdio: ['pipe', 'pipe', 'pipe'] })
+
+    proc.stderr.on('data', (data: Buffer) => {
+      const line = data.toString()
+      stderr += line
+      const match = line.match(/time=(\d{2}):(\d{2}):(\d{2}\.\d{2})/)
+      if (match && opts.onProgress) {
+        const seconds = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseFloat(match[3])
+        const pct = durationSeconds > 0 ? Math.min(99, Math.floor((seconds / durationSeconds) * 100)) : 0
+        opts.onProgress(pct)
+      }
+    })
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        logInfo(`FFmpeg render completed: ${opts.outputPath}`)
+        opts.onProgress?.(100)
+        resolve({ success: true, outputPath: opts.outputPath })
+      } else {
+        const rawStderr = stderr.slice(-500)
+        
+        classifyFfmpegError(rawStderr).then((choice) => {
+          let userMessage = `FFmpeg error (code ${code})`
+          
+          if (choice === 'codec_unsupported') userMessage = "Format video sumber tidak didukung oleh preset render ini."
+          else if (choice === 'file_corrupted') userMessage = "File video sumber rusak atau tidak dapat dibaca."
+          else if (choice === 'out_of_memory') userMessage = "Kehabisan memori saat melakukan render video."
+          else if (choice === 'unknown') userMessage = `Gagal memproses video (FFmpeg Error Code: ${code}).`
+          
+          const err = createAppError('FFMPEG_ENCODING_ERROR', userMessage, 'main', rawStderr)
+          logError(err)
+          resolve({ success: false, error: userMessage })
+        })
+      }
+    })
+
+    proc.on('error', (err) => {
+      const appErr = createAppError('FFMPEG_NOT_FOUND', err.message, 'main')
+      logError(appErr)
+      resolve({ success: false, error: err.message })
+    })
+  }
+
+  return promise
 }
 
 export async function generateThumbnail(videoPath: string, outputPath: string, timeSeconds = 1): Promise<boolean> {
-  return new Promise((resolve) => {
-    const args = [
-      '-i', videoPath,
-      '-ss', String(timeSeconds),
-      '-vframes', '1',
-      '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2',
-      '-y', outputPath
-    ]
-    const proc = spawn('ffmpeg', args, { stdio: 'pipe' })
-    proc.on('close', (code) => resolve(code === 0))
-    proc.on('error', () => resolve(false))
-  })
+  const ffmpegBin = await resolveBinary('ffmpeg')
+  const { promise, resolve } = Promise.withResolvers<boolean>()
+
+  const args = [
+    '-i', videoPath,
+    '-ss', String(timeSeconds),
+    '-vframes', '1',
+    '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2',
+    '-y', outputPath
+  ]
+  const proc = spawn(ffmpegBin, args, { stdio: 'pipe' })
+  proc.on('close', (code) => resolve(code === 0))
+  proc.on('error', () => resolve(false))
+
+  return promise
 }

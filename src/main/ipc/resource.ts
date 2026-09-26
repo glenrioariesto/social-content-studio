@@ -5,6 +5,7 @@ import { join } from 'path'
 import { spawn } from 'child_process'
 import { logInfo, logError } from '@main/errors'
 import { createAppError, type IPCResult } from '@shared/errors'
+import { resolveBinary } from '@main/services/binary-resolver'
 import { getWorkspaceRoot } from '@main/services/workspace-root'
 import { assertInsideWorkspace } from '@main/services/path-guard'
 import { sanitizeFileName, parseResourceMeta, isAllowedDownloadUrl } from '@main/services/resource-utils'
@@ -63,48 +64,50 @@ export function initResourceIpc(): void {
 
     logInfo(`resource:download start url=${trimmedUrl} output=${outputPath}`)
 
-    return await new Promise<IPCResult<Resource>>((resolve) => {
-      let stderr = ''
-      const proc = spawn('yt-dlp', ['-f', 'best', '-o', outputPath, trimmedUrl], { stdio: 'pipe' })
-      const timer = setTimeout(() => {
-        proc.kill()
-        const message = 'yt-dlp download timed out'
-        logError(createAppError('RESOURCE_DOWNLOAD_FAILED', `resource:download failed: ${message}`, 'ipc'))
-        resolve({ success: false, error: message, errorCode: 'RESOURCE_DOWNLOAD_FAILED' })
-      }, 10 * 60 * 1000)
-      proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
-      proc.on('error', (err) => {
-        clearTimeout(timer)
-        const message = `yt-dlp failed to start: ${err.message}`
-        logError(createAppError('RESOURCE_DOWNLOAD_FAILED', `resource:download failed: ${message}`, 'ipc'))
-        resolve({ success: false, error: message, errorCode: 'RESOURCE_DOWNLOAD_FAILED' })
-      })
-      proc.on('close', async (code) => {
-        clearTimeout(timer)
-        if (code !== 0) {
-          const message = stderr.trim() || `yt-dlp exited with code ${code}`
-          logError(createAppError('RESOURCE_DOWNLOAD_FAILED', `resource:download failed: ${message}`, 'ipc'))
-          resolve({ success: false, error: message, errorCode: 'RESOURCE_DOWNLOAD_FAILED' })
-          return
-        }
-        const meta: Resource = {
-          id: name,
-          source: 'internet',
-          sourceUrl: url,
-          fileName: name,
-          filePath: outputPath,
-          status: 'ready',
-          createdAt: new Date().toISOString()
-        }
-        try {
-          await writeFile(join(dir, `${name}.json`), JSON.stringify(meta, null, 2), 'utf-8')
-          resolve({ success: true, data: meta })
-        } catch (err) {
-          logError(createAppError('FS_WRITE_ERROR', `resource:download meta write failed: ${err}`, 'ipc'))
-          resolve({ success: false, error: 'Downloaded but failed to record metadata', errorCode: 'FS_WRITE_ERROR' })
-        }
-      })
+    const ytDlpBin = await resolveBinary('yt-dlp')
+    const { promise, resolve } = Promise.withResolvers<IPCResult<Resource>>()
+    
+    let stderr = ''
+    const proc = spawn(ytDlpBin, ['-f', 'best', '-o', outputPath, trimmedUrl], { stdio: 'pipe' })
+    const timer = setTimeout(() => {
+      proc.kill()
+      const message = 'yt-dlp download timed out'
+      logError(createAppError('RESOURCE_DOWNLOAD_FAILED', `resource:download failed: ${message}`, 'ipc'))
+      resolve({ success: false, error: message, errorCode: 'RESOURCE_DOWNLOAD_FAILED' })
+    }, 10 * 60 * 1000)
+    proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
+    proc.on('error', (err) => {
+      clearTimeout(timer)
+      const message = `yt-dlp failed to start: ${err.message}`
+      logError(createAppError('RESOURCE_DOWNLOAD_FAILED', `resource:download failed: ${message}`, 'ipc'))
+      resolve({ success: false, error: message, errorCode: 'RESOURCE_DOWNLOAD_FAILED' })
     })
+    proc.on('close', async (code) => {
+      clearTimeout(timer)
+      if (code !== 0) {
+        const message = stderr.trim() || `yt-dlp exited with code ${code}`
+        logError(createAppError('RESOURCE_DOWNLOAD_FAILED', `resource:download failed: ${message}`, 'ipc'))
+        resolve({ success: false, error: message, errorCode: 'RESOURCE_DOWNLOAD_FAILED' })
+        return
+      }
+      const meta: Resource = {
+        id: name,
+        source: 'internet',
+        sourceUrl: url,
+        fileName: name,
+        filePath: outputPath,
+        status: 'ready',
+        createdAt: new Date().toISOString()
+      }
+      try {
+        await writeFile(join(dir, `${name}.json`), JSON.stringify(meta, null, 2), 'utf-8')
+        resolve({ success: true, data: meta })
+      } catch (err) {
+        logError(createAppError('FS_WRITE_ERROR', `resource:download meta write failed: ${err}`, 'ipc'))
+        resolve({ success: false, error: 'Downloaded but failed to record metadata', errorCode: 'FS_WRITE_ERROR' })
+      }
+    })
+    return promise
   }, 'FS_WRITE_ERROR')
 
   safeIpcMain('resource:upload', async (_event, fileName?: string) => {
