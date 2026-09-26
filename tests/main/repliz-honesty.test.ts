@@ -6,11 +6,6 @@ import { tmpdir } from 'os'
 
 let wsRoot = ''
 
-mock.module('C:/project/social-content-studio/src/main/errors.ts', () => ({
-  logInfo: () => {},
-  logError: () => {},
-  logWarning: () => {}
-}))
 
 
 mock.module('electron', () => ({
@@ -31,7 +26,8 @@ async function withTmpWs<T>(fn: (root: string) => Promise<T>): Promise<T> {
   try {
     return await fn(root)
   } finally {
-    _setTestWorkspaceRoot(undefined)
+    _setTestWorkspaceRoot(null)
+    _setTestBootstrapSettingsPath(null)
     wsRoot = ''
     await rm(root, { recursive: true, force: true })
   }

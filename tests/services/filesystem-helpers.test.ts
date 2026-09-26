@@ -3,16 +3,11 @@ import { mkdtemp, mkdir, writeFile, rm } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
-mock.module('C:/project/social-content-studio/src/main/errors.ts', () => ({
-  logInfo: () => {},
-  logError: () => {},
-  logWarning: () => {}
-}))
-
 mock.module('electron', () => ({
   ipcMain: { handle: () => {}, on: () => {} },
   dialog: { showOpenDialog: async () => ({ canceled: true }) },
   safeStorage: { isEncryptionAvailable: () => false },
+  shell: { openPath: async () => '' },
   app: { on: () => {}, getPath: () => '' },
   BrowserWindow: class {}
 }))

@@ -9,11 +9,6 @@ let generateThumbnailImpl: (...args: any[]) => Promise<any>
 let wsRoot = ''
 const ipcHandlers = new Map<string, (...args: any[]) => Promise<any>>()
 
-mock.module('C:/project/social-content-studio/src/main/errors.ts', () => ({
-  logInfo: () => {},
-  logError: () => {},
-  logWarning: () => {}
-}))
 
 mock.module('C:/project/social-content-studio/src/main/services/render-engine.ts', () => ({
   renderVideo: (...args: any[]) => renderVideoImpl(...args),
@@ -28,6 +23,7 @@ mock.module('electron', () => ({
   dialog: { showOpenDialog: async () => ({ canceled: true }) },
   safeStorage: { isEncryptionAvailable: () => false },
   app: { on: () => {}, getPath: () => '' },
+  shell: { openPath: async () => '' },
   BrowserWindow: class {}
 }))
 
@@ -46,7 +42,8 @@ async function withTmpWs<T>(fn: (root: string) => Promise<T>): Promise<T> {
     renderQueue.setContentStateHooks({})
     return await fn(root)
   } finally {
-    _setTestWorkspaceRoot(undefined)
+    _setTestWorkspaceRoot(null)
+    _setTestBootstrapSettingsPath(null)
     await rm(root, { recursive: true, force: true })
   }
 }

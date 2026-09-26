@@ -1,21 +1,12 @@
-import { expect, test, mock, beforeAll, afterAll, beforeEach } from 'bun:test'
+import { expect, test, mock, spyOn, beforeAll, afterAll, beforeEach } from 'bun:test'
 import { join } from 'path'
 import { mkdtemp, rm, writeFile, mkdir } from 'fs/promises'
 import { tmpdir } from 'os'
 
+import { _setTestWorkspaceRoot, _setTestBootstrapSettingsPath } from '@main/services/workspace-root'
+
 let wsRoot = ''
-const ipcHandlers = new Map<string, (...args: any[]) => Promise<any>>()
-
-mock.module('@main/services/workspace-root', () => ({
-  getWorkspaceRoot: () => wsRoot,
-  BOOTSTRAP_SETTINGS_PATH: join(wsRoot, 'settings.json')
-}))
-
-mock.module('@main/errors', () => ({
-  logInfo: mock(),
-  logError: mock(),
-  logWarning: mock()
-}))
+const ipcHandlers = ((globalThis as any).__testIpcHandlers ||= new Map())
 
 mock.module('electron', () => ({
   ipcMain: {
@@ -24,21 +15,22 @@ mock.module('electron', () => ({
   },
   dialog: {},
   app: { on: () => {}, getPath: () => '' },
+  shell: { openPath: async () => '' },
+  safeStorage: { isEncryptionAvailable: () => false, encryptString: (s: string) => Buffer.from(s), decryptString: (b: Buffer) => b.toString() },
   BrowserWindow: class {}
 }))
 
+const typesafeClient = await import('@main/services/typesafe-client')
 let mockIsSafe = true
-mock.module('@main/services/typesafe-client', () => ({
-  checkBrandGuardrails: async () => mockIsSafe,
-  classifyAssetType: async () => null,
-  classifyFfmpegError: async () => null
-}))
+const guardrailsSpy = spyOn(typesafeClient, 'checkBrandGuardrails').mockImplementation(async () => mockIsSafe)
 
 // Import dynamically after mocks
 const { initRenderIpc } = await import('@main/ipc/render')
 
 beforeAll(async () => {
   wsRoot = await mkdtemp(join(tmpdir(), 'guardrails-test-'))
+  _setTestWorkspaceRoot(wsRoot)
+  _setTestBootstrapSettingsPath(join(wsRoot, 'settings.json'))
   await mkdir(join(wsRoot, 'contents', 'test-content'), { recursive: true })
   
   // Write a dummy content file
@@ -55,10 +47,14 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
+  guardrailsSpy.mockRestore()
+  _setTestWorkspaceRoot(null)
+  _setTestBootstrapSettingsPath(null)
   await rm(wsRoot, { recursive: true, force: true })
 })
 
 beforeEach(() => {
+  _setTestWorkspaceRoot(wsRoot)
   ipcHandlers.clear()
   const dummyWindow = { isDestroyed: () => false, webContents: { send: () => {} } } as any
   initRenderIpc(dummyWindow)

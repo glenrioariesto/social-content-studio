@@ -9,11 +9,6 @@ let wsRoot = ''
 const ipcHandlers = new Map<string, (...args: any[]) => Promise<any>>()
 let spawnImpl: (cmd: string, args: string[]) => { pid?: number; kill(): void; stderr: EventEmitter } & EventEmitter
 
-mock.module('C:/project/social-content-studio/src/main/errors.ts', () => ({
-  logInfo: () => {},
-  logError: () => {},
-  logWarning: () => {}
-}))
 
 
 mock.module('child_process', () => ({
@@ -28,6 +23,7 @@ mock.module('electron', () => ({
   dialog: { showOpenDialog: async () => ({ canceled: true }) },
   safeStorage: { isEncryptionAvailable: () => false },
   app: { on: () => {}, getPath: () => '' },
+  shell: { openPath: async () => '' },
   BrowserWindow: class {}
 }))
 

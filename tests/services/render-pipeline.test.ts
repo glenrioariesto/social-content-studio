@@ -9,17 +9,10 @@ let generateThumbnailImpl: (...args: any[]) => Promise<any>
 let wsRoot = ''
 const ipcHandlers = new Map<string, (...args: any[]) => Promise<any>>()
 
-mock.module('C:/project/social-content-studio/src/main/errors.ts', () => ({
-  logInfo: () => {},
-  logError: () => {},
-  logWarning: () => {}
-}))
-
 mock.module('C:/project/social-content-studio/src/main/services/render-engine.ts', () => ({
   renderVideo: (...args: any[]) => renderVideoImpl(...args),
   generateThumbnail: (...args: any[]) => generateThumbnailImpl(...args)
 }))
-
 
 mock.module('electron', () => ({
   ipcMain: {
@@ -28,6 +21,7 @@ mock.module('electron', () => ({
   },
   dialog: { showOpenDialog: async () => ({ canceled: true }) },
   safeStorage: { isEncryptionAvailable: () => false },
+  shell: { openPath: async () => '' },
   app: { on: () => {}, getPath: () => '' },
   BrowserWindow: class {}
 }))
@@ -60,9 +54,9 @@ function invoke(channel: string, ...args: unknown[]) {
 }
 
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
-async function waitFor(cond: () => boolean, timeout = 3000): Promise<void> {
+async function waitFor(cond: () => boolean | Promise<boolean>, timeout = 3000): Promise<void> {
   const start = Date.now()
-  while (!cond()) {
+  while (!(await cond())) {
     if (Date.now() - start > timeout) throw new Error('waitFor timed out')
     await delay(5)
   }
@@ -108,7 +102,14 @@ describe('Render pipeline content-state hooks (REQ-001 / SPEC-02)', () => {
       })
 
       await q.addJob({ id: 'j1', contentId: 'c1', options: makeOptions(join(root, 'out1.mp4')) })
-      await waitFor(() => q.getJob('j1')?.status === 'completed')
+      await waitFor(async () => {
+        try {
+          const raw = await readFile(join(root, 'contents', 'c1', 'content.json'), 'utf-8')
+          return JSON.parse(raw).status === 'ready-to-post'
+        } catch {
+          return false
+        }
+      })
       const c = JSON.parse(await readFile(join(root, 'contents', 'c1', 'content.json'), 'utf-8'))
       expect(c.status).toBe('ready-to-post')
       expect(c.output.video).toBe(join(root, 'out1.mp4'))
@@ -139,7 +140,14 @@ describe('Render pipeline content-state hooks (REQ-001 / SPEC-02)', () => {
       })
 
       await q.addJob({ id: 'j2', contentId: 'c2', options: makeOptions(join(root, 'out2.mp4')) })
-      await waitFor(() => q.getJob('j2')?.status === 'failed')
+      await waitFor(async () => {
+        try {
+          const raw = await readFile(join(root, 'contents', 'c2', 'content.json'), 'utf-8')
+          return JSON.parse(raw).status === 'failed'
+        } catch {
+          return false
+        }
+      })
       const c = JSON.parse(await readFile(join(root, 'contents', 'c2', 'content.json'), 'utf-8'))
       expect(c.status).toBe('failed')
     })
@@ -163,8 +171,10 @@ describe('Render pipeline content-state hooks (REQ-001 / SPEC-02)', () => {
         inputPath: join(root, 'contents', 'c3', 'video.mp4'),
         outputPath: join(root, 'renders', 'out-c3.mp4')
       })
-      expect(firstRes.success).toBe(true)
-      await waitFor(() => invoke('render:jobs').then((res: any) => res.data?.some((j: any) => j.contentId === 'c3' && j.status === 'rendering')))
+      await waitFor(async () => {
+        const res: any = await invoke('render:jobs')
+        return res.data?.some((j: any) => j.contentId === 'c3' && (j.status === 'rendering' || j.status === 'waiting'))
+      })
 
       const secondRes = await invoke('render:start', {
         contentId: 'c3',

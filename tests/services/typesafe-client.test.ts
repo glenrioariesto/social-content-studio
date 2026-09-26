@@ -1,6 +1,12 @@
-import { expect, test, mock, beforeEach } from 'bun:test'
+import { expect, test, mock, beforeEach, beforeAll, afterAll } from 'bun:test'
+import { join } from 'path'
+import { mkdtemp, rm, writeFile } from 'fs/promises'
+import { tmpdir } from 'os'
+import { _setTestBootstrapSettingsPath } from '@main/services/workspace-root'
 
-const mockReadFile = mock(() => Promise.resolve('{"typesafeApiKey": "test-key"}'))
+let testDir = ''
+let testSettingsFile = ''
+
 const mockFetch = mock(() => Promise.resolve({
   ok: true,
   json: () => Promise.resolve({ choice: 'codec_unsupported', confidence: 0.9 })
@@ -12,27 +18,25 @@ mock.module('electron', () => ({
   BrowserWindow: {}
 }))
 
-mock.module('fs/promises', () => ({
-  readFile: mockReadFile
-}))
-
-mock.module('@main/services/workspace-root', () => ({
-  BOOTSTRAP_SETTINGS_PATH: 'mock-path'
-}))
-
-mock.module('@main/errors', () => ({
-  logInfo: mock(),
-  logError: mock(),
-  logWarning: mock()
-}))
-
 // Test exception: Dynamic import required after mocks setup in Bun tests
 const { classifyFfmpegError, classifyAssetType, checkBrandGuardrails, scoreAssetRelevance, suggestTemplateForContent } = await import('@main/services/typesafe-client')
 
-beforeEach(() => {
-  mockReadFile.mockClear()
+beforeAll(async () => {
+  testDir = await mkdtemp(join(tmpdir(), 'typesafe-test-'))
+  testSettingsFile = join(testDir, 'settings.json')
+  _setTestBootstrapSettingsPath(testSettingsFile)
+})
+
+afterAll(async () => {
+  _setTestBootstrapSettingsPath(null)
+  await rm(testDir, { recursive: true, force: true })
+})
+
+beforeEach(async () => {
+  _setTestBootstrapSettingsPath(testSettingsFile)
   mockFetch.mockClear()
   globalThis.fetch = mockFetch as unknown as typeof fetch
+  await writeFile(testSettingsFile, JSON.stringify({ typesafeApiKey: 'test-key' }), 'utf-8')
 })
 
 test('classifyFfmpegError returns choice on success', async () => {
@@ -42,7 +46,7 @@ test('classifyFfmpegError returns choice on success', async () => {
 })
 
 test('classifyFfmpegError returns null if key missing', async () => {
-  mockReadFile.mockImplementationOnce(() => Promise.resolve('{}'))
+  await writeFile(testSettingsFile, '{}', 'utf-8')
   const result = await classifyFfmpegError('raw error text')
   expect(result).toBeNull()
 })
@@ -54,7 +58,7 @@ test('classifyAssetType returns choice on success', async () => {
 })
 
 test('classifyAssetType returns null if key missing', async () => {
-  mockReadFile.mockImplementationOnce(() => Promise.resolve('{}'))
+  await writeFile(testSettingsFile, '{}', 'utf-8')
   const result = await classifyAssetType('photo.png')
   expect(result).toBeNull()
 })
@@ -72,7 +76,7 @@ test('checkBrandGuardrails returns false if noul <= 0.6', async () => {
 })
 
 test('checkBrandGuardrails fails open (returns true) if API key missing', async () => {
-  mockReadFile.mockImplementationOnce(() => Promise.resolve('{}'))
+  await writeFile(testSettingsFile, '{}', 'utf-8')
   const result = await checkBrandGuardrails('Any text')
   expect(result).toBe(true)
 })
@@ -84,7 +88,7 @@ test('scoreAssetRelevance returns score on success', async () => {
 })
 
 test('scoreAssetRelevance fails open (returns null) if API key missing', async () => {
-  mockReadFile.mockImplementationOnce(() => Promise.resolve('{}'))
+  await writeFile(testSettingsFile, '{}', 'utf-8')
   const result = await scoreAssetRelevance({ type: 'html-template' }, 'logo.png')
   expect(result).toBeNull()
 })
@@ -98,7 +102,7 @@ test('suggestTemplateForContent returns choice on success', async () => {
 })
 
 test('suggestTemplateForContent returns null if key missing', async () => {
-  mockReadFile.mockImplementationOnce(() => Promise.resolve('{}'))
+  await writeFile(testSettingsFile, '{}', 'utf-8')
   const result = await suggestTemplateForContent('caption', [{ id: '1', name: 'A', type: 'B' }])
   expect(result).toBeNull()
 })

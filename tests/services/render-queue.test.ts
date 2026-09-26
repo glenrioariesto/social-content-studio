@@ -13,11 +13,6 @@ let renderVideoImpl: (opts: {
 }) => Promise<{ success: boolean; outputPath?: string; error?: string }>
 let generateThumbnailImpl: (videoPath: string, outputPath: string) => Promise<boolean>
 
-mock.module('C:/project/social-content-studio/src/main/errors.ts', () => ({
-  logInfo: () => {},
-  logError: () => {},
-  logWarning: () => {}
-}))
 
 mock.module('C:/project/social-content-studio/src/main/services/render-engine.ts', () => ({
   renderVideo: (opts: Parameters<typeof renderVideoImpl>[0]) => renderVideoImpl(opts),

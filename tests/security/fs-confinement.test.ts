@@ -11,12 +11,6 @@ import { tmpdir } from 'os'
 let wsRoot = ''
 const ipcHandlers = new Map<string, (event: unknown, ...args: unknown[]) => Promise<unknown>>()
 
-mock.module('C:/project/social-content-studio/src/main/errors.ts', () => ({
-  logInfo: () => {},
-  logError: () => {},
-  logWarning: () => {}
-}))
-
 mock.module('electron', () => ({
   ipcMain: {
     handle: (channel: string, fn: (event: unknown, ...args: unknown[]) => Promise<unknown>) => {
@@ -26,6 +20,7 @@ mock.module('electron', () => ({
   },
   dialog: { showOpenDialog: async () => ({ canceled: true }) },
   safeStorage: { isEncryptionAvailable: () => false },
+  shell: { openPath: async () => '' },
   app: { on: () => {}, getPath: () => '' },
   BrowserWindow: class {
     isDestroyed(): boolean { return false }

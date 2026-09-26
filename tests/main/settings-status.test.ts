@@ -3,7 +3,7 @@ import { join } from 'path'
 import { mkdtemp, rm, writeFile, mkdir, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 
-const ipcHandlers = new Map<string, (...args: any[]) => Promise<any>>()
+const ipcHandlers = ((globalThis as any).__testIpcHandlers ||= new Map<string, (...args: any[]) => Promise<any>>())
 let bootstrapSettingsPath = ''
 let wsRoot = ''
 
@@ -12,32 +12,8 @@ let wsRoot = ''
 const testDir = await mkdtemp(join(tmpdir(), 'ws-status-'))
 bootstrapSettingsPath = join(testDir, 'settings.json')
 
-const wsModPath = import.meta.resolve('../../src/main/services/workspace-root.ts')
-mock.module(wsModPath, () => ({
-  getWorkspaceRoot: () => wsRoot,
-  BOOTSTRAP_SETTINGS_PATH: bootstrapSettingsPath
-}))
+import { _setTestWorkspaceRoot, _setTestBootstrapSettingsPath } from '@main/services/workspace-root'
 
-const persistModPath = import.meta.resolve('../../src/main/services/persistence.ts')
-mock.module(persistModPath, () => ({
-  atomicWriteJson: async (file: string, data: unknown) => { await writeFile(file, JSON.stringify(data, null, 2), 'utf-8') },
-  mergeKnownFields: <T extends object>(base: T, patch: Record<string, unknown>, permit: ReadonlyArray<keyof T>): T => {
-    const out: T = { ...base }
-    for (const key of permit) {
-      if (key in patch) {
-        ;(out as Record<string, unknown>)[key as string] = patch[key as string]
-      }
-    }
-    return out
-  }
-}))
-
-const errorsModPath = import.meta.resolve('../../src/main/errors.ts')
-mock.module(errorsModPath, () => ({
-  logInfo: () => {},
-  logError: () => {},
-  logWarning: () => {}
-}))
 
 mock.module('electron', () => ({
   ipcMain: { handle: (c: string, fn: (...a: any[]) => Promise<any>) => { ipcHandlers.set(c, fn) }, on: () => {} },
@@ -45,6 +21,8 @@ mock.module('electron', () => ({
     showOpenDialog: jest.fn(async () => ({ canceled: false, filePaths: ['C:/chosen/workspace'] }))
   },
   app: { on: () => {}, getPath: () => '' },
+  shell: { openPath: async () => '' },
+  safeStorage: { isEncryptionAvailable: () => false, encryptString: (s: string) => Buffer.from(s), decryptString: (b: Buffer) => b.toString() },
   BrowserWindow: class {}
 }))
 
@@ -60,11 +38,15 @@ beforeEach(async () => {
   // Reset to a "first run" state between tests.
   await rm(bootstrapSettingsPath, { force: true })
   wsRoot = join(process.cwd(), 'workspace')
+  _setTestBootstrapSettingsPath(bootstrapSettingsPath)
+  _setTestWorkspaceRoot(null)
   ipcHandlers.clear()
   initBackupIpc()
 })
 
 afterAll(async () => {
+  _setTestWorkspaceRoot(null)
+  _setTestBootstrapSettingsPath(null)
   await rm(testDir, { recursive: true, force: true })
 })
 
