@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileVideo, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileVideo, Trash2, Sparkles } from 'lucide-react'
 import { StatusBadge } from '@/components/StatusBadge'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useErrorToast } from '@/hooks/useErrorToast'
@@ -22,25 +22,28 @@ export function ContentDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [matching, setMatching] = useState(false)
   const [transitioningTo, setTransitioningTo] = useState<ContentStatus | null>(null)
   const { accounts } = useAccounts()
-  const { showSuccess, showError } = useErrorToast()
+  const { showSuccess, showError, showInfo } = useErrorToast()
 
   const account = content ? accounts.find(a => a.id === content.accountId) : null
   const nextStatuses = content ? allowedNextStatuses(content.status) : []
 
   const load = () => {
     if (!id) return
-    setLoading(true)
-    setError(null)
-    window.electron.workspace.getContent(id).then(result => {
-      if (result.success && result.data && result.data.kind === 'valid') {
-        setContent(result.data.data)
-      } else if (!result.success) {
-        setError(result.error ?? 'Failed to load content')
-      }
-      setLoading(false)
-    })
+    window.electron.workspace.getContents()
+      .then(res => {
+        if (res.success && res.data) {
+          const found = res.data.find(c => c.id === id)
+          if (found && found.kind === 'valid') setContent(found.data)
+          else setError('Content not found')
+        } else {
+          setError(res.error || 'Failed to load content')
+        }
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
   }
 
   useEffect(() => {
@@ -48,35 +51,88 @@ export function ContentDetailPage() {
   }, [id])
 
   const handleDelete = async () => {
-    if (!id) return
-    // AC-013: destructive action requires explicit confirmation before proceeding.
     setConfirmDelete(true)
   }
 
   const confirmDeleteContent = async () => {
-    if (!id) return
+    if (!content) return
     setDeleting(true)
-    const result = await window.electron.workspace.deleteContent(id)
-    setDeleting(false)
-    setConfirmDelete(false)
-    if (result.success) {
-      showSuccess('Content deleted')
-      navigate('/content')
-    } else {
-      showError(result.error ?? 'Failed to delete content')
+    try {
+      const result = await window.electron.workspace.deleteContent(content.id)
+      if (result.success) {
+        showSuccess('Content deleted')
+        navigate('/content')
+      } else {
+        showError(result.error || 'Failed to delete content')
+        setConfirmDelete(false)
+      }
+    } finally {
+      setDeleting(false)
     }
   }
 
   const handleTransition = async (to: ContentStatus) => {
-    if (!id) return
     setTransitioningTo(to)
-    const result = await window.electron.workspace.updateContent(id, { status: to })
-    setTransitioningTo(null)
-    if (result.success) {
-      showSuccess(`Moved to ${statusToLabel(to)}`)
-      load()
-    } else {
-      showError(result.error ?? 'Transition not allowed')
+    try {
+      const result = await window.electron.workspace.updateContent(content!.id, { status: to })
+      if (result.success) {
+        showSuccess(`Moved to ${statusToLabel(to)}`)
+        load()
+      } else {
+        showError(result.error || 'Failed to update status')
+      }
+    } finally {
+      setTransitioningTo(null)
+    }
+  }
+
+  const handleAiMatchmaker = async () => {
+    if (!content?.templateId) {
+      showError('Please assign a template first to find a matching asset.')
+      return
+    }
+    setMatching(true)
+    try {
+      const templatesRes = await (window.electron.workspace as any).getTemplates()
+      const template = templatesRes.data?.find((t: any) => t.id === content.templateId) || { id: content.templateId }
+      
+      const assetsRes = await window.electron.workspace.getAssets()
+      const allAssets = [...(assetsRes.data?.images || []), ...(assetsRes.data?.video || [])]
+      
+      if (allAssets.length === 0) {
+        showInfo('No images or videos found in the workspace.')
+        return
+      }
+
+      let bestAsset = null
+      let bestScore = -1
+      let bestFolder = ''
+
+      // Score each asset (sequential to avoid rate limits/overload on local models)
+      for (const folder of ['images', 'video'] as const) {
+        for (const assetName of assetsRes.data?.[folder] || []) {
+          const sRes = await window.electron.ai.scoreAsset(template, assetName)
+          if (sRes.success && typeof sRes.data === 'number') {
+            if (sRes.data > bestScore) {
+              bestScore = sRes.data
+              bestAsset = assetName
+              bestFolder = folder
+            }
+          }
+        }
+      }
+
+      if (bestAsset && bestScore > 50) {
+        await window.electron.workspace.updateContent(content.id, { resourcePath: `assets/${bestFolder}/${bestAsset}` })
+        showSuccess(`AI Matched: ${bestAsset} (Score: ${bestScore})`)
+        load()
+      } else {
+        showInfo('No highly relevant assets found for this template.')
+      }
+    } catch (err) {
+      showError('Failed to run AI Matchmaker')
+    } finally {
+      setMatching(false)
     }
   }
 
@@ -85,23 +141,11 @@ export function ContentDetailPage() {
   }
 
   if (error) {
-    return (
-      <ErrorState
-        title="Failed to load content"
-        message={error}
-        onRetry={load}
-      />
-    )
+    return <ErrorState title="Error" message={error} onRetry={load} />
   }
 
   if (!content) {
-    return (
-      <EmptyState
-        icon={<FileVideo className="h-10 w-10" />}
-        title="Content not found"
-        action={<Button variant="outline" onClick={() => navigate('/content')}>Back to content</Button>}
-      />
-    )
+    return <EmptyState title="Not Found" description="The requested content does not exist." />
   }
 
   return (
@@ -176,6 +220,10 @@ export function ContentDetailPage() {
                 <p className="text-zinc-300">{content.templateId || 'None'}</p>
               </div>
               <div>
+                <span className="text-zinc-500">Resource Path</span>
+                <p className="font-mono text-zinc-300 truncate" title={content.resourcePath}>{content.resourcePath || 'None'}</p>
+              </div>
+              <div>
                 <span className="text-zinc-500">Created</span>
                 <p className="text-zinc-300">{new Date(content.createdAt).toLocaleDateString()}</p>
               </div>
@@ -199,6 +247,18 @@ export function ContentDetailPage() {
               )}
             </Card>
           )}
+
+          <Card className="p-4 border-indigo-800/30 bg-indigo-950/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-300">AI Matchmaker</h3>
+                <p className="text-xs text-zinc-500">Automatically find the best asset for this template.</p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={handleAiMatchmaker} disabled={matching || !content.templateId}>
+                {matching ? <span className="flex items-center gap-2"><Sparkles className="h-4 w-4 animate-pulse" /> Scoring...</span> : <span className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-indigo-400" /> Find Best Asset</span>}
+              </Button>
+            </div>
+          </Card>
 
           <div className="flex gap-2">
             <Button
