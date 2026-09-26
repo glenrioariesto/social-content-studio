@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { X, ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { useAccounts } from '@/hooks/useAccounts'
+import { useTemplates } from '@/hooks/useTemplates'
+import { X, ArrowLeft, ArrowRight, Check, Sparkles } from 'lucide-react'
 import { useErrorToast } from '@/hooks/useErrorToast'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Field'
@@ -26,6 +27,8 @@ interface WizardData {
 }
 
 export function ContentCreationWizard({ onClose }: ContentCreationWizardProps) {
+  const { templates } = useTemplates()
+  const [isCreating, setIsCreating] = useState(false)
   const [step, setStep] = useState(1)
   const [data, setData] = useState<WizardData>({
     accountId: null,
@@ -49,15 +52,29 @@ export function ContentCreationWizard({ onClose }: ContentCreationWizardProps) {
   }
 
   const handleCreate = async () => {
+    setIsCreating(true)
+    
+    let templateId: string | undefined = undefined
+    if (data.caption.trim() && templates.length > 0) {
+      const available = templates.map(t => ({ id: t.id, name: t.name, type: t.type }))
+      const suggestion = await window.electron.ai.suggestTemplate(data.caption, available)
+      if (suggestion.success && suggestion.data) {
+        templateId = suggestion.data
+        showSuccess(`AI automatically selected template: ${templateId}`)
+      }
+    }
+
     const result = await window.electron.workspace.createContent({
       title: data.title,
       description: data.description,
       accountId: data.accountId,
+      templateId,
       status: 'idea',
       caption: data.caption,
       hashtags: data.hashtags.split(',').map(h => h.trim()).filter(Boolean)
     })
 
+    setIsCreating(false)
     if (result.success) {
       showSuccess('Content created!')
       onClose()
@@ -234,9 +251,16 @@ export function ContentCreationWizard({ onClose }: ContentCreationWizardProps) {
               <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={handleCreate}>
-              <Check className="h-4 w-4" />
-              Create Content
+            <Button onClick={handleCreate} disabled={!canNext() || isCreating}>
+              {isCreating ? (
+                <span className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 animate-pulse" /> AI is thinking...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Create Content
+                </span>
+              )}
             </Button>
           )}
         </div>
