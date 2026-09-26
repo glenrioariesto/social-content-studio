@@ -1,4 +1,5 @@
 import { describe, it, expect, mock, beforeAll, afterAll } from 'bun:test'
+import { _setTestWorkspaceRoot, _setTestBootstrapSettingsPath } from '@main/services/workspace-root'
 import { mkdtemp, mkdir, writeFile, readFile, rm, access } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -14,11 +15,6 @@ mock.module('C:/project/social-content-studio/src/main/errors.ts', () => ({
   logInfo: () => {},
   logError: () => {},
   logWarning: () => {}
-}))
-
-mock.module('C:/project/social-content-studio/src/main/services/workspace-root.ts', () => ({
-  getWorkspaceRoot: () => wsRoot,
-  BOOTSTRAP_SETTINGS_PATH: join(import.meta.dir, '..', '..', '..', 'workspace', 'config', 'settings.json')
 }))
 
 mock.module('electron', () => ({
@@ -44,9 +40,12 @@ const { initRenderIpc } = await import('../../src/main/ipc/render')
 async function withTmpWs<T>(fn: (root: string) => Promise<T>): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), 'conf-'))
   wsRoot = root
+  _setTestWorkspaceRoot(root)
+  _setTestBootstrapSettingsPath(join(root, 'settings.json'))
   try {
     return await fn(root)
   } finally {
+    _setTestWorkspaceRoot(undefined)
     wsRoot = ''
     await rm(root, { recursive: true, force: true })
   }

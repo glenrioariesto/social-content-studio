@@ -1,4 +1,5 @@
 import { describe, it, expect, mock } from 'bun:test'
+import { _setTestWorkspaceRoot, _setTestBootstrapSettingsPath } from '@main/services/workspace-root'
 import { mkdtemp, readFile, rm } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -11,10 +12,6 @@ mock.module('C:/project/social-content-studio/src/main/errors.ts', () => ({
   logWarning: () => {}
 }))
 
-mock.module('C:/project/social-content-studio/src/main/services/workspace-root.ts', () => ({
-  getWorkspaceRoot: () => wsRoot,
-  BOOTSTRAP_SETTINGS_PATH: join(process.cwd(), 'workspace', 'config', 'settings.json')
-}))
 
 mock.module('electron', () => ({
   safeStorage: { isEncryptionAvailable: () => false },
@@ -29,9 +26,12 @@ const { saveReplizCredentials, getReplizCredentialsStatus } = await import('../.
 async function withTmpWs<T>(fn: (root: string) => Promise<T>): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), 'repliz-'))
   wsRoot = root
+  _setTestWorkspaceRoot(root)
+  _setTestBootstrapSettingsPath(join(root, 'settings.json'))
   try {
     return await fn(root)
   } finally {
+    _setTestWorkspaceRoot(undefined)
     wsRoot = ''
     await rm(root, { recursive: true, force: true })
   }

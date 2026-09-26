@@ -1,4 +1,5 @@
 import { describe, it, expect, mock } from 'bun:test'
+import { _setTestWorkspaceRoot, _setTestBootstrapSettingsPath } from '@main/services/workspace-root'
 import { EventEmitter } from 'events'
 import { mkdtemp, rm } from 'fs/promises'
 import { join } from 'path'
@@ -14,10 +15,6 @@ mock.module('C:/project/social-content-studio/src/main/errors.ts', () => ({
   logWarning: () => {}
 }))
 
-mock.module('C:/project/social-content-studio/src/main/services/workspace-root.ts', () => ({
-  getWorkspaceRoot: () => wsRoot,
-  BOOTSTRAP_SETTINGS_PATH: join(process.cwd(), 'workspace', 'config', 'settings.json')
-}))
 
 mock.module('child_process', () => ({
   spawn: (cmd: string, args: string[]) => spawnImpl(cmd, args)
@@ -51,11 +48,14 @@ function invoke(channel: string, ...args: unknown[]) {
 }
 
 async function withTmpWs<T>(fn: (root: string) => Promise<T>): Promise<T> {
-  const root = await mkdtemp(join(tmpdir(), 'dl-'))
+  const root = await mkdtemp(join(tmpdir(), 'res-'))
   wsRoot = root
+  _setTestWorkspaceRoot(root)
+  _setTestBootstrapSettingsPath(join(root, 'settings.json'))
   try {
     return await fn(root)
   } finally {
+    _setTestWorkspaceRoot(undefined)
     wsRoot = ''
     await rm(root, { recursive: true, force: true })
   }

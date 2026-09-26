@@ -1,4 +1,5 @@
 import { describe, it, expect, mock } from 'bun:test'
+import { _setTestWorkspaceRoot, _setTestBootstrapSettingsPath } from '@main/services/workspace-root'
 import { mkdtemp, writeFile, readFile, mkdir, rm } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -19,10 +20,6 @@ mock.module('C:/project/social-content-studio/src/main/services/render-engine.ts
   generateThumbnail: (...args: any[]) => generateThumbnailImpl(...args)
 }))
 
-mock.module('C:/project/social-content-studio/src/main/services/workspace-root.ts', () => ({
-  getWorkspaceRoot: () => wsRoot,
-  BOOTSTRAP_SETTINGS_PATH: join(process.cwd(), 'workspace', 'config', 'settings.json')
-}))
 
 mock.module('electron', () => ({
   ipcMain: {
@@ -45,9 +42,12 @@ function makeOptions(outputPath: string) {
 async function withTmpWs<T>(fn: (root: string) => Promise<T>): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), 'rpipeline-'))
   wsRoot = root
+  _setTestWorkspaceRoot(root)
+  _setTestBootstrapSettingsPath(join(root, 'settings.json'))
   try {
     return await fn(root)
   } finally {
+    _setTestWorkspaceRoot(undefined)
     wsRoot = ''
     await rm(root, { recursive: true, force: true })
   }

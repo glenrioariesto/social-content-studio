@@ -1,4 +1,5 @@
-import { describe, it, expect, mock } from 'bun:test'
+import { describe, it, expect, mock, beforeAll } from 'bun:test'
+import { _setTestWorkspaceRoot, _setTestBootstrapSettingsPath } from '@main/services/workspace-root'
 import { mkdtemp, readFile, rm } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -19,11 +20,6 @@ mock.module('C:/project/social-content-studio/src/main/services/render-engine.ts
   generateThumbnail: (...args: any[]) => generateThumbnailImpl(...args)
 }))
 
-mock.module('C:/project/social-content-studio/src/main/services/workspace-root.ts', () => ({
-  getWorkspaceRoot: () => wsRoot,
-  BOOTSTRAP_SETTINGS_PATH: join(process.cwd(), 'workspace', 'config', 'settings.json')
-}))
-
 mock.module('electron', () => ({
   ipcMain: {
     handle: (channel: string, fn: (...args: any[]) => Promise<any>) => { ipcHandlers.set(channel, fn) },
@@ -42,14 +38,15 @@ const { validateContent } = await import('@shared/validators')
 
 async function withTmpWs<T>(fn: (root: string) => Promise<T>): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), 'batch-'))
-  wsRoot = root
+  _setTestWorkspaceRoot(root)
+  _setTestBootstrapSettingsPath(join(root, 'settings.json'))
   try {
     renderQueue.setPersistFile(join(root, 'queue.json'))
     renderQueue.setMaxConcurrent(1)
     renderQueue.setContentStateHooks({})
     return await fn(root)
   } finally {
-    wsRoot = ''
+    _setTestWorkspaceRoot(undefined)
     await rm(root, { recursive: true, force: true })
   }
 }
