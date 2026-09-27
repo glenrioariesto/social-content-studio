@@ -55,9 +55,9 @@ function invoke(channel: string, ...args: unknown[]) {
 }
 
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
-async function waitFor(cond: () => boolean, timeout = 3000): Promise<void> {
+async function waitFor(cond: () => boolean | Promise<boolean>, timeout = 5000): Promise<void> {
   const start = Date.now()
-  while (!cond()) {
+  while (!(await cond())) {
     if (Date.now() - start > timeout) throw new Error('waitFor timed out')
     await delay(5)
   }
