@@ -1,7 +1,7 @@
 {
   "defaultPreset": "instagram-reels",
   "maxConcurrentRender": 1,
-  "workspacePath": "C:\\project\\social-content-studio\\workspace",
+  "workspacePath": "",
   "ffmpegPath": "",
   "ffprobePath": "",
   "ytDlpPath": "",
