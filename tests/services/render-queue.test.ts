@@ -14,7 +14,7 @@ let renderVideoImpl: (opts: {
 let generateThumbnailImpl: (videoPath: string, outputPath: string) => Promise<boolean>
 
 
-mock.module('C:/project/social-content-studio/src/main/services/render-engine.ts', () => ({
+mock.module('@main/services/render-engine', () => ({
   renderVideo: (opts: Parameters<typeof renderVideoImpl>[0]) => renderVideoImpl(opts),
   generateThumbnail: (videoPath: string, outputPath: string) => generateThumbnailImpl(videoPath, outputPath)
 }))

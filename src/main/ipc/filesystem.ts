@@ -79,6 +79,11 @@ export function filterContentEntries(
 
 /** Secrets that are never readable through the generic `fs:*` bridge. */
 function isDeniedSecretPath(root: string, resolved: string): boolean {
+  const normResolved = resolved.toLowerCase().replace(/\\/g, '/')
+  const normRoot = root.toLowerCase().replace(/\\/g, '/')
+  if (normResolved.includes('/config/repliz-credentials') || normResolved.endsWith('.enc.json')) {
+    return true
+  }
   const rel = relative(root, resolved).toLowerCase().replace(/\\/g, '/')
   return rel.startsWith('config') &&
     (rel.includes('credentials') || rel.endsWith('.enc.json'))
@@ -105,7 +110,7 @@ async function guardOrThrow(channel: string, root: string, candidate: string, cr
           real.toLowerCase() !== absRoot.toLowerCase()) {
         throw createAppError('FS_PERMISSION_DENIED', `Symlink escapes workspace root: ${candidate}`, 'ipc', { channel, requested: candidate })
       }
-      if (isDeniedSecretPath(root, real)) {
+      if (isDeniedSecretPath(absRoot, real) || isDeniedSecretPath(root, real)) {
         throw createAppError('FS_PERMISSION_DENIED', `Access to credential file is restricted: ${candidate}`, 'ipc', { channel, requested: candidate })
       }
       return real
@@ -125,7 +130,7 @@ async function guardOrThrow(channel: string, root: string, candidate: string, cr
         throw parentErr
       }
     }
-    if (isDeniedSecretPath(root, confined.absolute)) {
+    if (isDeniedSecretPath(absRoot, confined.absolute) || isDeniedSecretPath(root, confined.absolute)) {
       throw createAppError('FS_PERMISSION_DENIED', `Access to credential file is restricted: ${candidate}`, 'ipc', { channel, requested: candidate })
     }
     return confined.absolute

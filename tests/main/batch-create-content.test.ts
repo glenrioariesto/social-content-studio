@@ -10,7 +10,7 @@ let wsRoot = ''
 const ipcHandlers = new Map<string, (...args: any[]) => Promise<any>>()
 
 
-mock.module('C:/project/social-content-studio/src/main/services/render-engine.ts', () => ({
+mock.module('@main/services/render-engine', () => ({
   renderVideo: (...args: any[]) => renderVideoImpl(...args),
   generateThumbnail: (...args: any[]) => generateThumbnailImpl(...args)
 }))
