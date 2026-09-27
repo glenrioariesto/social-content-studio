@@ -1,4 +1,4 @@
-import { expect, test, mock, spyOn, beforeAll, afterAll, beforeEach } from 'bun:test'
+import { expect, test, mock, spyOn, beforeAll, afterAll, beforeEach, afterEach } from 'bun:test'
 import { join } from 'path'
 import { mkdtemp, rm, writeFile, mkdir } from 'fs/promises'
 import { tmpdir } from 'os'
@@ -22,7 +22,7 @@ mock.module('electron', () => ({
 
 const typesafeClient = await import('@main/services/typesafe-client')
 let mockIsSafe = true
-const guardrailsSpy = spyOn(typesafeClient, 'checkBrandGuardrails').mockImplementation(async () => mockIsSafe)
+let guardrailsSpy: ReturnType<typeof spyOn> | null = null
 
 // Import dynamically after mocks
 const { initRenderIpc } = await import('@main/ipc/render')
@@ -47,7 +47,6 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  guardrailsSpy.mockRestore()
   _setTestWorkspaceRoot(null)
   _setTestBootstrapSettingsPath(null)
   await rm(wsRoot, { recursive: true, force: true })
@@ -59,6 +58,14 @@ beforeEach(() => {
   const dummyWindow = { isDestroyed: () => false, webContents: { send: () => {} } } as any
   initRenderIpc(dummyWindow)
   mockIsSafe = true
+  guardrailsSpy = spyOn(typesafeClient, 'checkBrandGuardrails').mockImplementation(async () => mockIsSafe)
+})
+
+afterEach(() => {
+  if (guardrailsSpy) {
+    guardrailsSpy.mockRestore()
+    guardrailsSpy = null
+  }
 })
 
 function invoke(channel: string, ...args: unknown[]) {

@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'bun:test'
+import { join, resolve } from 'path'
+import { tmpdir } from 'os'
 import { assertInsideWorkspace } from '../../src/main/services/path-guard'
 import { createAppError, type ErrorCode } from '../../packages/shared/src/errors'
 
@@ -12,29 +14,32 @@ function isDenied(err: unknown): boolean {
 }
 
 describe('assertInsideWorkspace', () => {
-  const root = 'C:\\project\\social-content-studio\\workspace'
+  const root = join(tmpdir(), 'test-ws-pathguard')
 
-  it('allows a relative path joined under root', () => {
-    const p = assertInsideWorkspace(root, 'workspace\\templates\\t\\template.json', 'fs:read-file')
-    expect(p.absolute).toContain(root)
+  it('allows a path joined under root', () => {
+    const target = join(root, 'templates', 't', 'template.json')
+    const p = assertInsideWorkspace(root, target, 'fs:read-file')
+    expect(p.absolute).toBe(resolve(target))
   })
 
   it('allows a path already under root', () => {
-    const target = `${root}\\contents\\content-1\\content.json`
+    const target = join(root, 'contents', 'content-1', 'content.json')
     const p = assertInsideWorkspace(root, target, 'fs:read-file')
-    expect(p.absolute).toBe(target)
+    expect(p.absolute).toBe(resolve(target))
   })
 
-  it('refuses an absolute path outside root (other drive)', () => {
-    expect(() => assertInsideWorkspace(root, 'C:\\Elsewhere\\note.txt', 'fs:read-file')).toThrow()
-    try { assertInsideWorkspace(root, 'C:\\Elsewhere\\note.txt', 'fs:read-file') } catch (e) {
+  it('refuses an absolute path outside root', () => {
+    const outside = join(tmpdir(), 'other-dir', 'note.txt')
+    expect(() => assertInsideWorkspace(root, outside, 'fs:read-file')).toThrow()
+    try { assertInsideWorkspace(root, outside, 'fs:read-file') } catch (e) {
       expect(isDenied(e)).toBe(true)
     }
   })
 
   it('refuses a .. traversal escaping the root', () => {
-    expect(() => assertInsideWorkspace(root, '..\\..\\Windows\\system32\\config.sam', 'fs:read-file')).toThrow()
-    try { assertInsideWorkspace(root, '..\\..\\Windows\\system32\\config.sam', 'fs:read-file') } catch (e) {
+    const escapePath = join(root, '..', '..', 'Windows', 'system32', 'config.sam')
+    expect(() => assertInsideWorkspace(root, escapePath, 'fs:read-file')).toThrow()
+    try { assertInsideWorkspace(root, escapePath, 'fs:read-file') } catch (e) {
       expect(isDenied(e)).toBe(true)
     }
   })
@@ -45,7 +50,8 @@ describe('assertInsideWorkspace', () => {
 
   it('is case-insensitive on drive and directory names', () => {
     const lower = root.toLowerCase()
-    const p = assertInsideWorkspace(root, `${lower}\\contents\\x\\c.json`, 'fs:read-file')
+    const target = join(lower, 'contents', 'x', 'c.json')
+    const p = assertInsideWorkspace(root, target, 'fs:read-file')
     expect(p.absolute.toLowerCase()).toContain(lower.toLowerCase())
   })
 })
