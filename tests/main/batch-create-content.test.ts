@@ -120,7 +120,10 @@ describe('Batch IPC canonical layout + enqueue (REQ-003 / PRN-002)', () => {
         expect(job.options.outputPath).toBe(join(root, 'contents', job.contentId, 'output.mp4'))
       }
 
-      await waitFor(() => jobs.every(j => j.status === 'completed'))
+      await waitFor(() => {
+        const currentJobs = renderQueue.getAllJobs().filter(j => ids.includes(j.contentId))
+        return currentJobs.length === 2 && currentJobs.every(j => j.status === 'completed')
+      })
       const completed = renderQueue.getAllJobs().filter(j => ids.includes(j.contentId))
       expect(completed).toHaveLength(2)
       expect(completed.every(j => j.status === 'completed')).toBe(true)
