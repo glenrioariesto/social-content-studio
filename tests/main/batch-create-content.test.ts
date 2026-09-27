@@ -36,12 +36,14 @@ async function withTmpWs<T>(fn: (root: string) => Promise<T>): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), 'batch-'))
   _setTestWorkspaceRoot(root)
   _setTestBootstrapSettingsPath(join(root, 'settings.json'))
+  renderQueue._resetForTest()
   try {
     renderQueue.setPersistFile(join(root, 'queue.json'))
     renderQueue.setMaxConcurrent(1)
     renderQueue.setContentStateHooks({})
     return await fn(root)
   } finally {
+    renderQueue._resetForTest()
     _setTestWorkspaceRoot(null)
     _setTestBootstrapSettingsPath(null)
     await rm(root, { recursive: true, force: true })

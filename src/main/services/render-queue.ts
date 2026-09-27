@@ -260,6 +260,17 @@ export class RenderQueue extends EventEmitter {
     await this.persist()
     logInfo(`Render queue shutdown: ${this.jobs.size} jobs saved`)
   }
+
+  /** Test-only helper to reset in-memory queue state between isolated test runs. */
+  _resetForTest(): void {
+    this.jobs.clear()
+    this.queue = []
+    this.running = 0
+    this.processing = false
+    this.ready = null
+    this.contentStateHooks = {}
+  }
 }
 
 export const renderQueue = new RenderQueue()
+
